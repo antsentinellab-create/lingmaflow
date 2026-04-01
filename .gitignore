@@ -1,1 +1,11 @@
-__pycache__/\n*.pyc\n.venv/\ndist/\n*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+*.log
