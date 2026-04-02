@@ -457,9 +457,10 @@ def verify(path):
 
 @cli.command('checkpoint')
 @click.argument('next_step')
+@click.argument('result', required=False, default='Step completed')
 @click.option('--commit', is_flag=True, help='Automatically git add and commit after advancing')
 @click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
-def checkpoint(next_step, commit, path):
+def checkpoint(next_step, result, commit, path):
     """Verify conditions and auto-advance if all pass.
     
     NEXT_STEP: The next step identifier (e.g., STEP-02)
@@ -500,7 +501,7 @@ def checkpoint(next_step, commit, path):
                 sys.exit(1)
         
         # All passed - advance
-        manager.advance(next_step, "Checkpoint passed")
+        manager.advance(next_step, result)
         manager.save(manager.state)
         
         click.echo(f"\n✓ Advanced to {next_step}")
