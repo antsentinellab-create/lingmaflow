@@ -195,6 +195,14 @@ class TaskStateManager:
         
         lines.append(f"最後更新：{state.timestamp}")
         
+        # Preserve Done Conditions block from original file
+        if self.path.exists():
+            original = self.path.read_text(encoding='utf-8')
+            if '## Done Conditions' in original:
+                conditions_block = original[original.index('## Done Conditions'):]
+                lines.append('')
+                lines.append(conditions_block.strip())
+        
         return '\n'.join(lines)
     
     def load(self) -> TaskState:
