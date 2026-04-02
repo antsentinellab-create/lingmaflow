@@ -487,14 +487,14 @@ def checkpoint(next_step, result, commit, path):
             results = checker.check_all(conditions)
             
             # Display results
-            all_passed = all(result.passed for result in results)
+            all_passed = all(cond.passed for cond in results)
             
-            for result in results:
-                if result.passed:
-                    click.echo(f"✅ {result.condition}")
+            for cond in results:
+                if cond.passed:
+                    click.echo(f"✅ {cond.condition}")
                 else:
-                    click.echo(f"❌ {result.condition}")
-                    click.echo(f"   {result.message}")
+                    click.echo(f"❌ {cond.condition}")
+                    click.echo(f"   {cond.message}")
             
             if not all_passed:
                 click.echo("\n⚠️  Not all conditions passed. Cannot advance.", err=True)
