@@ -374,3 +374,124 @@ class TaskStateManager:
         if self.state is None:
             return False
         return self.state.status == TaskStatus.DONE
+    
+    def get_conditions(self) -> list[str]:
+        """Get all Done Conditions from the state file.
+        
+        Returns:
+            List of condition strings (without checkbox markers).
+            Empty list if no Done Conditions block exists.
+        """
+        if self.state is None:
+            raise InvalidStateError("State not loaded. Call load() first.")
+        
+        if not self.path.exists():
+            return []
+        
+        content = self.path.read_text(encoding='utf-8')
+        conditions = []
+        
+        # Find Done Conditions block
+        lines = content.split('\n')
+        in_conditions_block = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Check for Done Conditions header
+            if line_stripped.startswith('## Done Conditions') or line_stripped.startswith('## 完成條件'):
+                in_conditions_block = True
+                continue
+            
+            # Exit block when encountering next section
+            if in_conditions_block and line_stripped.startswith('## '):
+                break
+            
+            # Parse checkbox items
+            if in_conditions_block and line_stripped.startswith('- ['):
+                # Extract condition text (remove checkbox)
+                if line_stripped.startswith('- [ ] ') or line_stripped.startswith('- [x] '):
+                    condition = line_stripped[6:].strip()
+                    if condition:  # Only add non-empty conditions
+                        conditions.append(condition)
+        
+        return conditions
+    
+    def mark_condition_done(self, condition: str) -> None:
+        """Mark a specific condition as done.
+        
+        Args:
+            condition: The condition string to mark as done
+            
+        Raises:
+            ValueError: If condition is not found in the list
+        """
+        if self.state is None:
+            raise InvalidStateError("State not loaded. Call load() first.")
+        
+        if not self.path.exists():
+            raise ValueError(f"Condition not found: {condition}")
+        
+        content = self.path.read_text(encoding='utf-8')
+        lines = content.split('\n')
+        new_lines = []
+        found = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Check if this line contains our condition
+            if condition in line_stripped and (line_stripped.startswith('- [ ] ') or line_stripped.startswith('- [x] ')):
+                # Replace unchecked with checked
+                if line_stripped.startswith('- [ ] '):
+                    # Preserve original indentation
+                    indent = len(line) - len(line.lstrip())
+                    new_line = ' ' * indent + '- [x] ' + condition
+                    new_lines.append(new_line)
+                    found = True
+                    continue
+            
+            new_lines.append(line)
+        
+        if not found:
+            raise ValueError(f"Condition not found: {condition}")
+        
+        # Write updated content
+        new_content = '\n'.join(new_lines)
+        self.path.write_text(new_content, encoding='utf-8')
+    
+    def all_conditions_done(self) -> bool:
+        """Check if all Done Conditions are marked as done.
+        
+        Returns:
+            True if all conditions are [x], False if any are [ ].
+            Returns True for empty conditions list (vacuous truth).
+        """
+        conditions = self.get_conditions()
+        
+        if not conditions:
+            return True  # No conditions = vacuously true
+        
+        if not self.path.exists():
+            return False
+        
+        content = self.path.read_text(encoding='utf-8')
+        lines = content.split('\n')
+        
+        # Check each condition in the file
+        for condition in conditions:
+            found_checked = False
+            
+            for line in lines:
+                line_stripped = line.strip()
+                if condition in line_stripped:
+                    if line_stripped.startswith('- [x] '):
+                        found_checked = True
+                        break
+                    elif line_stripped.startswith('- [ ] '):
+                        return False  # Found unchecked condition
+            
+            if not found_checked:
+                return False  # Condition not found or not checked
+        
+        return True

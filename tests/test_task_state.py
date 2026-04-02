@@ -540,3 +540,205 @@ class TestStateTransitionScenarios:
         # Now can complete
         manager.complete()
         assert manager.is_done()
+
+
+# ============================================================================
+# Tests for Done Conditions Extension (Phase 4)
+# ============================================================================
+
+class TestGetConditions:
+    """Test get_conditions() method."""
+    
+    def test_get_conditions_parsing(self, tmp_path):
+        """Test parsing Done Conditions block."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+- [ ] file:lingmaflow/core/task_state.py
+- [ ] pytest:tests/test_task_state.py
+- [x] func:lingmaflow.core.TaskStateManager
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        conditions = manager.get_conditions()
+        
+        assert len(conditions) == 3
+        assert "file:lingmaflow/core/task_state.py" in conditions
+        assert "pytest:tests/test_task_state.py" in conditions
+        assert "func:lingmaflow.core.TaskStateManager" in conditions
+    
+    def test_get_conditions_no_block(self, valid_state_file):
+        """Test when no Done Conditions block exists."""
+        manager = TaskStateManager(valid_state_file)
+        manager.load()
+        conditions = manager.get_conditions()
+        
+        assert conditions == []
+    
+    def test_get_conditions_empty_block(self, tmp_path):
+        """Test with empty Done Conditions block."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        conditions = manager.get_conditions()
+        
+        assert conditions == []
+    
+    def test_get_conditions_without_load_raises_error(self, tmp_state_file):
+        """Test that calling without load raises error."""
+        manager = TaskStateManager(tmp_state_file)
+        
+        with pytest.raises(InvalidStateError):
+            manager.get_conditions()
+
+
+class TestMarkConditionDone:
+    """Test mark_condition_done() method."""
+    
+    def test_mark_condition_done_successful_update(self, tmp_path):
+        """Test successfully marking a condition as done."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+- [ ] file:lingmaflow/core/task_state.py
+- [ ] pytest:tests/test_task_state.py
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        manager.mark_condition_done("file:lingmaflow/core/task_state.py")
+        
+        # Read file and verify
+        updated_content = task_state_file.read_text(encoding='utf-8')
+        assert "- [x] file:lingmaflow/core/task_state.py" in updated_content
+        assert "- [ ] pytest:tests/test_task_state.py" in updated_content
+    
+    def test_mark_condition_done_invalid_condition(self, tmp_path):
+        """Test marking non-existent condition."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+- [ ] file:lingmaflow/core/task_state.py
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        
+        with pytest.raises(ValueError, match="Condition not found"):
+            manager.mark_condition_done("nonexistent:condition")
+    
+    def test_mark_condition_done_without_load_raises_error(self, tmp_state_file):
+        """Test that calling without load raises error."""
+        manager = TaskStateManager(tmp_state_file)
+        
+        with pytest.raises(InvalidStateError):
+            manager.mark_condition_done("file:test.py")
+
+
+class TestAllConditionsDone:
+    """Test all_conditions_done() method."""
+    
+    def test_all_conditions_done_all_checked(self, tmp_path):
+        """Test when all conditions are checked."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+- [x] file:lingmaflow/core/task_state.py
+- [x] pytest:tests/test_task_state.py
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        result = manager.all_conditions_done()
+        
+        assert result is True
+    
+    def test_all_conditions_done_partially_checked(self, tmp_path):
+        """Test when some conditions are unchecked."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+- [x] file:lingmaflow/core/task_state.py
+- [ ] pytest:tests/test_task_state.py
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        result = manager.all_conditions_done()
+        
+        assert result is False
+    
+    def test_all_conditions_done_empty_block(self, tmp_path):
+        """Test with empty Done Conditions block (vacuous truth)."""
+        task_state_file = tmp_path / "TASK_STATE.md"
+        content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Add tests
+未解決問題：
+最後更新：2024-01-01T12:00:00
+
+## Done Conditions
+"""
+        task_state_file.write_text(content, encoding='utf-8')
+        
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        result = manager.all_conditions_done()
+        
+        assert result is True
+    
+    def test_all_conditions_done_no_block(self, valid_state_file):
+        """Test when no Done Conditions block exists."""
+        manager = TaskStateManager(valid_state_file)
+        manager.load()
+        result = manager.all_conditions_done()
+        
+        assert result is True  # No conditions = vacuously true

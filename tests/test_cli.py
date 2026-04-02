@@ -532,3 +532,215 @@ class TestIntegrationWorkflow:
         assert result.exit_code == 0
         assert "STEP-02" in result.output
         assert "Initialized" in result.output
+
+
+# ============================================================================
+# Tests for Execution Engine Commands (Phase 4)
+# ============================================================================
+
+class TestPrepareCommand:
+    """Test prepare command."""
+    
+    def test_prepare_command_success_case(self, runner, project_with_skills):
+        """Test prepare generates current_task.md."""
+        # Create TASK_STATE.md with Done Conditions
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Setup done
+下一步動作：Write tests for authentication
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [ ] file:lingmaflow/core/auth.py
+- [ ] pytest:tests/test_auth.py
+"""
+        task_state_file = project_with_skills / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['prepare', '--path', str(project_with_skills)]
+        )
+        
+        assert result.exit_code == 0
+        assert "Generated" in result.output
+        
+        # Check output file exists
+        output_file = project_with_skills / ".lingmaflow" / "current_task.md"
+        assert output_file.exists()
+        
+        content = output_file.read_text(encoding='utf-8')
+        assert "STEP-01" in content
+        assert "Write tests" in content
+        assert "file:lingmaflow/core/auth.py" in content
+    
+    def test_prepare_command_missing_task_state(self, runner, tmp_project):
+        """Test prepare with missing TASK_STATE.md."""
+        result = runner.invoke(
+            cli,
+            ['prepare', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 1
+        assert "Error:" in result.output
+        assert "TASK_STATE.md not found" in result.output
+    
+    def test_prepare_command_skill_matching(self, runner, project_with_skills):
+        """Test prepare matches skills based on next_action."""
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Setup done
+下一步動作：開始寫 pytest 測試
+未解決問題：
+最後更新：2024-01-01T00:00:00
+"""
+        task_state_file = project_with_skills / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['prepare', '--path', str(project_with_skills)]
+        )
+        
+        assert result.exit_code == 0
+        
+        output_file = project_with_skills / ".lingmaflow" / "current_task.md"
+        content = output_file.read_text(encoding='utf-8')
+        
+        # Should match test-driven-development skill (contains "pytest")
+        assert "test-driven-development" in content.lower() or "參考 Skill" in content
+
+
+class TestVerifyCommand:
+    """Test verify command."""
+    
+    def test_verify_command_all_pass(self, runner, tmp_project):
+        """Test verify with all passing conditions."""
+        # Create TASK_STATE.md with existing files
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Continue
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [x] file:tests/test_cli.py
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['verify', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 0
+        assert "✅" in result.output
+    
+    def test_verify_command_some_fail(self, runner, tmp_project):
+        """Test verify with some failing conditions."""
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Testing
+下一步動作：Continue
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [ ] file:nonexistent_file.txt
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['verify', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 1
+        assert "❌" in result.output
+    
+    def test_verify_command_no_done_conditions(self, runner, initialized_project):
+        """Test verify with no Done Conditions block."""
+        result = runner.invoke(
+            cli,
+            ['verify', '--path', str(initialized_project)]
+        )
+        
+        assert result.exit_code == 0
+        assert "無 Done Conditions" in result.output or "No" in result.output
+
+
+class TestCheckpointCommand:
+    """Test checkpoint command."""
+    
+    def test_checkpoint_command_verify_pass_and_advance(self, runner, tmp_project):
+        """Test checkpoint advances when verify passes."""
+        # Create TASK_STATE.md with passing condition
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Done
+下一步動作：Next step
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [x] file:tests/test_cli.py
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['checkpoint', 'STEP-02', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 0
+        assert "Advanced to STEP-02" in result.output
+        
+        # Verify state was updated
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        assert manager.state.current_step == "STEP-02"
+    
+    def test_checkpoint_command_verify_fail_no_advance(self, runner, tmp_project):
+        """Test checkpoint doesn't advance when verify fails."""
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Done
+下一步動作：Next step
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [ ] file:nonexistent.txt
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        result = runner.invoke(
+            cli,
+            ['checkpoint', 'STEP-02', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 1
+        assert "❌" in result.output
+        assert "Cannot advance" in result.output or "Not all conditions" in result.output
+        
+        # Verify state was NOT updated
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        assert manager.state.current_step == "STEP-01"  # Still at original step
+    
+    def test_checkpoint_command_missing_next_step(self, runner, initialized_project):
+        """Test checkpoint without next_step argument."""
+        result = runner.invoke(
+            cli,
+            ['checkpoint', '--path', str(initialized_project)]
+        )
+        
+        # Click should show usage error for missing required argument
+        assert result.exit_code != 0
+        assert "Usage:" in result.output or "Missing" in result.output

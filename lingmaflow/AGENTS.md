@@ -9,7 +9,11 @@
 
 ## 可用 Skill 清單
 
-目前沒有可用的技能。
+- **subagent-driven**: 執行計劃, 實作, apply, 開始做, 跑任務, execute plan, implementation
+- **writing-plans**: 計劃, 拆解任務, 實作計劃, plan, 步驟, 任務列表, work breakdown
+- **test-driven-development**: 寫測試, pytest, TDD, 單元測試, 測試, unit test, test first
+- **brainstorming**: 規格, 設計, 需求, brainstorm, 討論方案, 功能規劃, 產品設計
+- **systematic-debugging**: debug, 除錯, 錯誤, bug, fix, 失敗, error, exception
 
 ## Done Condition 規則
 

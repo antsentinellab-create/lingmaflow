@@ -13,6 +13,7 @@ import click
 from ..core.task_state import TaskStateManager, InvalidStateError, MalformedStateFileError
 from ..core.skill_registry import SkillRegistry, MalformedSkillError
 from ..core.agents_injector import AgentsInjector, InjectionError
+from ..core.condition_checker import ConditionChecker, UnknownConditionTypeError
 
 
 @click.group()
@@ -317,6 +318,216 @@ def agents_generate(output, force, path):
         sys.exit(1)
     except MalformedSkillError as e:
         click.echo(f"Error reading skill: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+# ============================================================================
+# Execution Engine Commands (NEW in Phase 4)
+# ============================================================================
+
+@cli.command('prepare')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+def prepare(path):
+    """Prepare current task context with skill references.
+    
+    Reads TASK_STATE.md and generates .lingmaflow/current_task.md
+    with step info, done conditions, and matching skill content.
+    """
+    try:
+        project_path = Path(path).resolve()
+        task_state_file = project_path / 'TASK_STATE.md'
+        
+        if not task_state_file.exists():
+            click.echo(f"Error: TASK_STATE.md not found in {project_path}", err=True)
+            sys.exit(1)
+        
+        # Load task state
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        
+        # Get conditions
+        conditions = manager.get_conditions()
+        
+        # Match skills based on next_action
+        skills_path = project_path / 'lingmaflow' / 'skills'
+        if not skills_path.exists():
+            skills_path = project_path / 'skills'
+        
+        matched_skills = []
+        if skills_path.exists() and manager.state.next_action:
+            registry = SkillRegistry(skills_path)
+            registry.scan()
+            
+            # Try to match triggers with next_action
+            next_action_lower = manager.state.next_action.lower()
+            for skill in registry.skills:
+                for trigger in skill.triggers:
+                    if trigger.lower() in next_action_lower:
+                        matched_skills.append(skill)
+                        break
+        
+        # Create .lingmaflow directory
+        lingmaflow_dir = project_path / '.lingmaflow'
+        lingmaflow_dir.mkdir(exist_ok=True)
+        
+        # Generate current_task.md
+        output_file = lingmaflow_dir / 'current_task.md'
+        
+        content_lines = [
+            "# 當前任務\n",
+            f"## 步驟：{manager.state.current_step}\n",
+            f"## 說明：{manager.state.next_action or 'N/A'}\n",
+            "## Done Conditions\n"
+        ]
+        
+        if conditions:
+            for condition in conditions:
+                content_lines.append(f"- [ ] {condition}")
+        else:
+            content_lines.append("無\n")
+        
+        content_lines.append("\n## 參考 Skill\n")
+        
+        if matched_skills:
+            for skill in matched_skills:
+                content_lines.append(f"### {skill.name}\n")
+                content_lines.append(f"**Triggers:** {', '.join(skill.triggers)}\n")
+                content_lines.append(f"**Priority:** {skill.priority}\n")
+                content_lines.append(f"{skill.content}\n")
+        else:
+            content_lines.append("無匹配的 skill\n")
+        
+        output_file.write_text('\n'.join(content_lines), encoding='utf-8')
+        
+        click.echo(f"✓ Generated {output_file}")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command('verify')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+def verify(path):
+    """Verify all Done Conditions.
+    
+    Reads Done Conditions from TASK_STATE.md and checks each one.
+    Shows ✅ for pass, ❌ for fail. Exit code 0 if all pass, 1 otherwise.
+    """
+    try:
+        project_path = Path(path).resolve()
+        task_state_file = project_path / 'TASK_STATE.md'
+        
+        if not task_state_file.exists():
+            click.echo(f"Error: TASK_STATE.md not found in {project_path}", err=True)
+            sys.exit(1)
+        
+        # Load and get conditions
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        conditions = manager.get_conditions()
+        
+        if not conditions:
+            click.echo("無 Done Conditions")
+            sys.exit(0)
+        
+        # Check all conditions
+        checker = ConditionChecker()
+        results = checker.check_all(conditions)
+        
+        # Display results
+        all_passed = True
+        for result in results:
+            if result.passed:
+                click.echo(f"✅ {result.condition}")
+            else:
+                click.echo(f"❌ {result.condition}")
+                click.echo(f"   {result.message}")
+                all_passed = False
+        
+        sys.exit(0 if all_passed else 1)
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command('checkpoint')
+@click.argument('next_step')
+@click.option('--commit', is_flag=True, help='Automatically git add and commit after advancing')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+def checkpoint(next_step, commit, path):
+    """Verify conditions and auto-advance if all pass.
+    
+    NEXT_STEP: The next step identifier (e.g., STEP-02)
+    
+    If --commit flag is set, automatically runs git add and git commit.
+    """
+    try:
+        import subprocess
+        
+        project_path = Path(path).resolve()
+        task_state_file = project_path / 'TASK_STATE.md'
+        
+        if not task_state_file.exists():
+            click.echo(f"Error: TASK_STATE.md not found in {project_path}", err=True)
+            sys.exit(1)
+        
+        # Load and verify
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        conditions = manager.get_conditions()
+        
+        if conditions:
+            checker = ConditionChecker()
+            results = checker.check_all(conditions)
+            
+            # Display results
+            all_passed = all(result.passed for result in results)
+            
+            for result in results:
+                if result.passed:
+                    click.echo(f"✅ {result.condition}")
+                else:
+                    click.echo(f"❌ {result.condition}")
+                    click.echo(f"   {result.message}")
+            
+            if not all_passed:
+                click.echo("\n⚠️  Not all conditions passed. Cannot advance.", err=True)
+                sys.exit(1)
+        
+        # All passed - advance
+        manager.advance(next_step, "Checkpoint passed")
+        manager.save(manager.state)
+        
+        click.echo(f"\n✓ Advanced to {next_step}")
+        
+        # Handle git commit if requested
+        if commit:
+            try:
+                # Git add
+                subprocess.run(['git', 'add', '.'], cwd=project_path, check=True, capture_output=True)
+                
+                # Git commit
+                commit_msg = f"Complete {manager.state.current_step}"
+                subprocess.run(
+                    ['git', 'commit', '-m', commit_msg],
+                    cwd=project_path,
+                    check=True,
+                    capture_output=True
+                )
+                
+                click.echo(f"✓ Git commit: {commit_msg}")
+                
+            except subprocess.CalledProcessError as e:
+                click.echo(f"⚠️  Git operation failed: {e}")
+                click.echo("  Continuing anyway...")
+        
+    except InvalidStateError as e:
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
