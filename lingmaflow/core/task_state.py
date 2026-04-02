@@ -148,9 +148,13 @@ class TaskStateManager:
                         fields['timestamp'] = value
                     elif key == '未解決問題' or key == 'unresolved' or key == '未解决问题':
                         current_section = 'unresolved'
+            elif line_stripped.startswith('## Done Conditions'):
+                current_section = 'done_conditions'
             elif line_stripped.startswith('- ') and current_section == 'unresolved':
-                # Parse unresolved issue
-                fields['unresolved'].append(line_stripped[2:])
+                # Parse unresolved issue，跳過 Done Conditions 格式
+                item = line_stripped[2:]
+                if not item.startswith('[ ]') and not item.startswith('[x]'):
+                    fields['unresolved'].append(item)
         
         # Validate required fields
         if not fields['current_step']:
