@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "1.1",
+    "description": "Test task one",
+    "done": false,
+    "started_at": null,
+    "completed_at": null,
+    "notes": ""
+  },
+  {
+    "id": "1.2",
+    "description": "Test task two",
+    "done": false,
+    "started_at": null,
+    "completed_at": null,
+    "notes": ""
+  },
+  {
+    "id": "1.3",
+    "description": "Test task three",
+    "done": false,
+    "started_at": null,
+    "completed_at": null,
+    "notes": ""
+  }
+]
