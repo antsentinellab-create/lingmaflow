@@ -8,6 +8,7 @@ from lingmaflow.core.condition_checker import (
 from lingmaflow.core.skill_registry import SkillRegistry, MalformedSkillError
 from lingmaflow.core.agents_injector import AgentsInjector, InjectionError
 from lingmaflow.core.task_state import TaskStateManager, TaskStatus, InvalidStateError, MalformedStateFileError
+from lingmaflow.core.harness import HarnessManager, ResumePoint
 
 __all__ = [
     'ConditionChecker',
@@ -21,4 +22,6 @@ __all__ = [
     'TaskStatus',
     'InvalidStateError',
     'MalformedStateFileError',
+    'HarnessManager',
+    'ResumePoint',
 ]
