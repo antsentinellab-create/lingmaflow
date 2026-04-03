@@ -651,8 +651,12 @@ def harness_log(completed, leftover, failed, next_step, path):
         if change_name:
             change_dir = project_path / 'openspec' / 'changes' / change_name
         else:
-            # Assume current directory
+            # Assume current directory contains tasks.json
             change_dir = Path.cwd()
+            # Verify it's a valid change directory
+            if not (change_dir / 'tasks.json').exists():
+                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
+                sys.exit(1)
         
         manager = HarnessManager(change_dir)
         
@@ -697,6 +701,9 @@ def harness_resume(path):
             change_dir = project_path / 'openspec' / 'changes' / change_name
         else:
             change_dir = Path.cwd()
+            if not (change_dir / 'tasks.json').exists():
+                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
+                sys.exit(1)
         
         manager = HarnessManager(change_dir)
         brief = manager.generate_startup_brief()
@@ -726,6 +733,9 @@ def harness_status(path):
             change_dir = project_path / 'openspec' / 'changes' / change_name
         else:
             change_dir = Path.cwd()
+            if not (change_dir / 'tasks.json').exists():
+                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
+                sys.exit(1)
         
         manager = HarnessManager(change_dir)
         status = manager.get_status()

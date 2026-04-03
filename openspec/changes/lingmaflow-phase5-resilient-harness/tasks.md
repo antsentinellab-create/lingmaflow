@@ -31,14 +31,14 @@
 
 ## 4. 測試與驗證
 
-- [ ] 4.1 建立 `tests/test_harness.py` 測試模組
-- [ ] 4.2 測試 `test_init_change()`：驗證 tasks.json 和 PROGRESS.md 建立
-- [ ] 4.3 測試 `test_complete_task()`：驗證 done flag 和 timestamp 更新
-- [ ] 4.4 測試 `test_log_session()`：驗證 PROGRESS.md 內容格式正確
-- [ ] 4.5 測試 `test_get_resume_point()`：驗證 ResumePoint 欄位正確
-- [ ] 4.6 測試 `test_parse_tasks_md()`：驗證 Markdown → JSON 轉換邏輯
-- [ ] 4.7 測試 CLI 命令：`test_harness_init`, `test_harness_done`, `test_harness_resume`
-- [ ] 4.8 執行 `pytest tests/test_harness.py -v` 並確保全綠
+- [x] 4.1 建立 `tests/test_harness.py` 測試模組
+- [x] 4.2 測試 `test_init_change()`：驗證 tasks.json 和 PROGRESS.md 建立
+- [x] 4.3 測試 `test_complete_task()`：驗證 done flag 和 timestamp 更新
+- [x] 4.4 測試 `test_log_session()`：驗證 PROGRESS.md 內容格式正確
+- [x] 4.5 測試 `test_get_resume_point()`：驗證 ResumePoint 欄位正確
+- [x] 4.6 測試 `test_parse_tasks_md()`：驗證 Markdown → JSON 轉換邏輯
+- [x] 4.7 測試 CLI 命令：`test_harness_init`, `test_harness_done`, `test_harness_resume`
+- [x] 4.8 執行 `pytest tests/test_harness.py -v` 並確保全綠
 
 ## 5. 整合測試與文件
 
