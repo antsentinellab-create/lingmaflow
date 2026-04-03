@@ -1,15 +1,15 @@
 ## 1. HarnessManager 核心模組
 
-- [ ] 1.1 建立 `lingmaflow/core/harness.py` 檔案結構
-- [ ] 1.2 定義 `ResumePoint` dataclass（change_name, next_task_id, last_completed_id, context, failed_attempts）
-- [ ] 1.3 實現 `HarnessManager.__init__()` 和 change_dir 解析邏輯
-- [ ] 1.4 實現 `init_change()` 方法：建立 tasks.json 和 PROGRESS.md，執行 git commit
-- [ ] 1.5 實現 `parse_tasks_md()` 方法：將 tasks.md 轉換為 JSON 格式
-- [ ] 1.6 實現 `complete_task()` 方法：更新 tasks.json，記錄 timestamp，執行 git commit
-- [ ] 1.7 實現 `log_session()` 方法：追加 session 記錄到 PROGRESS.md，執行 git commit
-- [ ] 1.8 實現 `get_resume_point()` 方法：掃描 tasks.json 和 PROGRESS.md，返回 ResumePoint
-- [ ] 1.9 實現 `generate_startup_brief()` 方法：生成接回指令字串
-- [ ] 1.10 實現 `_run_git_command()` 輔助方法：封裝 git add/commit 邏輯
+- [x] 1.1 建立 `lingmaflow/core/harness.py` 檔案結構
+- [x] 1.2 定義 `ResumePoint` dataclass（change_name, next_task_id, last_completed_id, context, failed_attempts）
+- [x] 1.3 實現 `HarnessManager.__init__()` 和 change_dir 解析邏輯
+- [x] 1.4 實現 `init_change()` 方法：建立 tasks.json 和 PROGRESS.md，執行 git commit
+- [x] 1.5 實現 `parse_tasks_md()` 方法：將 tasks.md 轉換為 JSON 格式
+- [x] 1.6 實現 `complete_task()` 方法：更新 tasks.json，記錄 timestamp，執行 git commit
+- [x] 1.7 實現 `log_session()` 方法：追加 session 記錄到 PROGRESS.md，執行 git commit
+- [x] 1.8 實現 `get_resume_point()` 方法：掃描 tasks.json 和 PROGRESS.md，返回 ResumePoint
+- [x] 1.9 實現 `generate_startup_brief()` 方法：生成接回指令字串
+- [x] 1.10 實現 `_run_git_command()` 輔助方法：封裝 git add/commit 邏輯
 
 ## 2. CLI harness 命令群組
 

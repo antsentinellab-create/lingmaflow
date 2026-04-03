@@ -14,6 +14,7 @@ from ..core.task_state import TaskStateManager, InvalidStateError, MalformedStat
 from ..core.skill_registry import SkillRegistry, MalformedSkillError
 from ..core.agents_injector import AgentsInjector, InjectionError
 from ..core.condition_checker import ConditionChecker, UnknownConditionTypeError
+from ..core.harness import HarnessManager, ResumePoint
 
 
 @click.group()
@@ -530,6 +531,214 @@ def checkpoint(next_step, result, commit, path):
     except InvalidStateError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+# ============================================================================
+# Harness Management Commands (NEW in Phase 5)
+# ============================================================================
+
+@cli.group()
+def harness():
+    """Manage harness for resilient agent resume."""
+    pass
+
+
+@harness.command('init')
+@click.argument('change_name')
+@click.option('--path', '-p', default='.', help='Path to openspec changes directory (default: current directory)')
+def harness_init(change_name, path):
+    """Initialize harness for an openspec change.
+    
+    CHANGE_NAME: The name of the openspec change
+    """
+    try:
+        project_path = Path(path).resolve()
+        change_dir = project_path / 'openspec' / 'changes' / change_name
+        
+        if not change_dir.exists():
+            click.echo(f"Error: Change directory not found: {change_dir}", err=True)
+            sys.exit(1)
+        
+        manager = HarnessManager(change_dir)
+        manager.init_change(change_name)
+        
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@harness.command('done')
+@click.argument('task_id')
+@click.option('--notes', '-n', default='', help='Notes about the task completion')
+@click.option('--path', '-p', default='.', help='Path to openspec changes directory')
+def harness_done(task_id, notes, path):
+    """Mark a task as done.
+    
+    TASK_ID: The ID of the task to mark as done
+    """
+    try:
+        # Get current change name from context or require explicit path
+        project_path = Path(path).resolve()
+        
+        # Try to find the current change directory
+        # For now, assume we're working in the current directory's openspec/changes
+        import subprocess
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True,
+            text=True,
+            cwd=project_path
+        )
+        
+        if result.returncode != 0:
+            click.echo("Error: Not in a git repository", err=True)
+            sys.exit(1)
+        
+        # User needs to specify which change to work with
+        # For simplicity, assume current working directory contains tasks.json
+        import os
+        cwd = Path.cwd()
+        if (cwd / 'tasks.json').exists():
+            change_dir = cwd
+        elif (project_path / 'openspec' / 'changes').exists():
+            # Need to specify change name - use environment variable or error
+            change_name = os.environ.get('HARNESS_CHANGE_NAME')
+            if not change_name:
+                click.echo("Error: Please set HARNESS_CHANGE_NAME environment variable or run from change directory", err=True)
+                sys.exit(1)
+            change_dir = project_path / 'openspec' / 'changes' / change_name
+        else:
+            click.echo("Error: tasks.json not found", err=True)
+            sys.exit(1)
+        
+        manager = HarnessManager(change_dir)
+        manager.complete_task(task_id, notes)
+        
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@harness.command('log')
+@click.option('--completed', '-c', default='', help='Comma-separated list of completed task IDs')
+@click.option('--leftover', '-l', default='', help='Leftover task status')
+@click.option('--failed', '-f', 'failed', default='', help='Failed attempts (semicolon-separated)')
+@click.option('--next', '-n', 'next_step', default='', help='Next step instructions')
+@click.option('--path', '-p', default='.', help='Path to openspec changes directory')
+def harness_log(completed, leftover, failed, next_step, path):
+    """Log session progress to PROGRESS.md.
+    
+    If no options provided, enters interactive mode.
+    """
+    try:
+        project_path = Path(path).resolve()
+        
+        # Get change directory
+        import os
+        change_name = os.environ.get('HARNESS_CHANGE_NAME')
+        if change_name:
+            change_dir = project_path / 'openspec' / 'changes' / change_name
+        else:
+            # Assume current directory
+            change_dir = Path.cwd()
+        
+        manager = HarnessManager(change_dir)
+        
+        # Interactive mode if no parameters provided
+        if not any([completed, leftover, failed, next_step]):
+            click.echo("Session Log (interactive mode)")
+            click.echo("-" * 40)
+            
+            completed = click.prompt('Completed task IDs (comma-separated)', default='')
+            leftover = click.prompt('Leftover task status', default='')
+            failed = click.prompt('Failed attempts (semicolon-separated)', default='')
+            next_step = click.prompt('Next step instructions', default='')
+        
+        # Parse inputs
+        completed_list = [t.strip() for t in completed.split(',') if t.strip()]
+        failed_list = [f.strip() for f in failed.split(';') if f.strip()]
+        
+        manager.log_session(
+            completed=completed_list,
+            leftover=leftover,
+            failed_attempts=failed_list,
+            next_step=next_step
+        )
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@harness.command('resume')
+@click.option('--path', '-p', default='.', help='Path to openspec changes directory')
+def harness_resume(path):
+    """Generate resume brief for agent recovery.
+    """
+    try:
+        project_path = Path(path).resolve()
+        
+        # Get change directory
+        import os
+        change_name = os.environ.get('HARNESS_CHANGE_NAME')
+        if change_name:
+            change_dir = project_path / 'openspec' / 'changes' / change_name
+        else:
+            change_dir = Path.cwd()
+        
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief()
+        
+        click.echo(brief)
+        
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@harness.command('status')
+@click.option('--path', '-p', default='.', help='Path to openspec changes directory')
+def harness_status(path):
+    """Show harness status summary.
+    """
+    try:
+        project_path = Path(path).resolve()
+        
+        # Get change directory
+        import os
+        change_name = os.environ.get('HARNESS_CHANGE_NAME')
+        if change_name:
+            change_dir = project_path / 'openspec' / 'changes' / change_name
+        else:
+            change_dir = Path.cwd()
+        
+        manager = HarnessManager(change_dir)
+        status = manager.get_status()
+        
+        if 'error' in status:
+            click.echo(f"Error: {status['error']}", err=True)
+            sys.exit(1)
+        
+        click.echo(f"Change: {status['change_name']}")
+        click.echo(f"Progress: {status['done']}/{status['total']} tasks done ({status['percentage']:.0f}%)")
+        click.echo(f"Current: task {status['current_task'] or 'N/A'}")
+        click.echo(f"Last session: {status['last_session']}")
+        
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
