@@ -2,10 +2,10 @@
   {
     "id": "1.1",
     "description": "Test task one",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-03T11:44:20.651546Z",
+    "notes": "Test completion"
   },
   {
     "id": "1.2",
