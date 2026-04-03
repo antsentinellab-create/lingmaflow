@@ -42,10 +42,10 @@
 
 ## 5. 整合測試與文件
 
-- [ ] 5.1 建立測試用 change：`openspec new change test-harness-integration`
-- [ ] 5.2 執行 `lingmaflow harness init test-harness-integration` 驗證初始化
-- [ ] 5.3 手動執行 `lingmaflow harness done 1.1 --notes "test"` 驗證 task 完成
-- [ ] 5.4 執行 `lingmaflow harness resume` 驗證輸出包含正確的 next_task_id
-- [ ] 5.5 執行 `lingmaflow harness resume` 驗證輸出包含 failed_attempts（如果有記錄）
-- [ ] 5.6 清理測試 change：`rm -rf openspec/changes/test-harness-integration`
-- [ ] 5.7 執行 `pytest tests/` 確保所有測試全綠
+- [x] 5.1 建立測試用 change：`openspec new change test-harness-integration`
+- [x] 5.2 執行 `lingmaflow harness init test-harness-integration` 驗證初始化
+- [x] 5.3 手動執行 `lingmaflow harness done 1.1 --notes "test"` 驗證 task 完成
+- [x] 5.4 執行 `lingmaflow harness resume` 驗證輸出包含正確的 next_task_id
+- [x] 5.5 執行 `lingmaflow harness resume` 驗證輸出包含 failed_attempts（如果有記錄）
+- [x] 5.6 清理測試 change：`rm -rf openspec/changes/test-harness-integration`
+- [x] 5.7 執行 `pytest tests/` 確保所有測試全綠
