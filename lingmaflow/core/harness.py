@@ -144,7 +144,7 @@ class HarnessManager:
         for task in tasks:
             if task['id'] == task_id:
                 task['done'] = True
-                task['completed_at'] = datetime.utcnow().isoformat() + 'Z'
+                task['completed_at'] = self._get_utc_timestamp()
                 task['notes'] = notes
                 task_found = True
                 task_description = task['description']
@@ -163,6 +163,15 @@ class HarnessManager:
         print(f"✓ task {task_id} marked done")
         print(f"✓ git commit: task({task_id}): {task_description}")
     
+    def _get_utc_timestamp(self) -> str:
+        """獲取 UTC 時間戳。
+        
+        Returns:
+            ISO 8601 格式的 UTC 時間戳
+        """
+        from datetime import timezone
+        return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+    
     def log_session(
         self,
         completed: list[str],
@@ -171,14 +180,14 @@ class HarnessManager:
         next_step: str
     ) -> None:
         """記錄 session 到 PROGRESS.md。
-        
+                
         Args:
             completed: 完成的 task IDs 列表
             leftover: 遺留的任務狀態描述
             failed_attempts: 失敗的嘗試列表
             next_step: 下一步指示
         """
-        timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M')
+        timestamp = self._get_utc_timestamp()[:16].replace('T', ' ')
         
         # 建立 session 內容
         session_content = f"## Session {timestamp}\n\n"

@@ -23,11 +23,11 @@
 
 ## 3. AGENTS.md 模板更新
 
-- [ ] 3.1 在 `lingmaflow/templates/AGENTS.md.j2` 新增「harness 執行規則」章節
-- [ ] 3.2 注入「開始新 session 時」的 startup sequence
-- [ ] 3.3 注入「完成每個 task 後」的 harness done 命令規範
-- [ ] 3.4 注入「session 結束前」的 harness log 命令規範
-- [ ] 3.5 注入「禁止行為」清單（不可修改 id/description、不可跳過 notes 等）
+- [x] 3.1 在 `lingmaflow/templates/AGENTS.md.j2` 新增「harness 執行規則」章節
+- [x] 3.2 注入「開始新 session 時」的 startup sequence
+- [x] 3.3 注入「完成每個 task 後」的 harness done 命令規範
+- [x] 3.4 注入「session 結束前」的 harness log 命令規範
+- [x] 3.5 注入「禁止行為」清單（不可修改 id/description、不可跳過 notes 等）
 
 ## 4. 測試與驗證
 
