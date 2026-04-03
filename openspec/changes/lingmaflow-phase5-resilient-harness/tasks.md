@@ -13,13 +13,13 @@
 
 ## 2. CLI harness 命令群組
 
-- [ ] 2.1 在 `lingmaflow/cli/lingmaflow.py` 新增 `harness` 子命令群組（使用 Click）
-- [ ] 2.2 實現 `harness init <change_name>` 命令：呼叫 HarnessManager.init_change()
-- [ ] 2.3 實現 `harness done <task_id> --notes "..."` 命令：呼叫 HarnessManager.complete_task()
-- [ ] 2.4 實現 `harness log` 命令：支援參數模式和互動式模式，呼叫 HarnessManager.log_session()
-- [ ] 2.5 實現 `harness resume` 命令：呼叫 HarnessManager.generate_startup_brief() 並輸出
-- [ ] 2.6 實現 `harness status` 命令：計算進度百分比並輸出摘要
-- [ ] 2.7 新增錯誤處理：tasks.json 不存在、git commit 失敗等情境
+- [x] 2.1 在 `lingmaflow/cli/lingmaflow.py` 新增 `harness` 子命令群組（使用 Click）
+- [x] 2.2 實現 `harness init <change_name>` 命令：呼叫 HarnessManager.init_change()
+- [x] 2.3 實現 `harness done <task_id> --notes "..."` 命令：呼叫 HarnessManager.complete_task()
+- [x] 2.4 實現 `harness log` 命令：支援參數模式和互動式模式，呼叫 HarnessManager.log_session()
+- [x] 2.5 實現 `harness resume` 命令：呼叫 HarnessManager.generate_startup_brief() 並輸出
+- [x] 2.6 實現 `harness status` 命令：計算進度百分比並輸出摘要
+- [x] 2.7 新增錯誤處理：tasks.json 不存在、git commit 失敗等情境
 
 ## 3. AGENTS.md 模板更新
 
