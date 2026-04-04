@@ -222,17 +222,31 @@ class HarnessManager:
         
         # 找到下一個未完成的 task
         next_task_id = None
-        last_completed_id = None
+        next_task_index = -1
         
-        for task in tasks:
-            if task['done']:
-                last_completed_id = task['id']
-            elif next_task_id is None and not task['done']:
+        for i, task in enumerate(tasks):
+            if not task['done'] and next_task_id is None:
                 next_task_id = task['id']
+                next_task_index = i
+                break
         
         # 如果所有 task 都完成了
         if next_task_id is None:
-            next_task_id = last_completed_id
+            change_name = self.change_dir.name
+            return ResumePoint(
+                change_name=change_name,
+                next_task_id='ALL_DONE',
+                last_completed_id=tasks[-1]['id'] if tasks else 'none',
+                context='',
+                failed_attempts=[]
+            )
+        
+        # 往回找前一個 done 的 task
+        last_completed_id = 'none'
+        for i in range(next_task_index - 1, -1, -1):
+            if tasks[i]['done']:
+                last_completed_id = tasks[i]['id']
+                break
         
         # 讀取 PROGRESS.md 的最後一個 session
         context = ''
@@ -263,8 +277,8 @@ class HarnessManager:
         
         return ResumePoint(
             change_name=change_name,
-            next_task_id=next_task_id or 'unknown',
-            last_completed_id=last_completed_id or 'none',
+            next_task_id=next_task_id,
+            last_completed_id=last_completed_id,
             context=context,
             failed_attempts=failed_attempts
         )
