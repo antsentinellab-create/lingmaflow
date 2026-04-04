@@ -239,6 +239,86 @@ class TestGetResumePoint:
         
         assert 'Context from last session' in rp.context
 
+    def test_all_tasks_done_returns_ALL_DONE(self, harness_manager, temp_change_dir):
+        """Test that ALL_DONE is returned when all tasks complete."""
+        tasks = [
+        {'id': '1.1', 'description': 'Done', 'done': True},
+        {'id': '1.2', 'description': 'Done', 'done': True},
+        ]
+        harness_manager.init_change('test-change', tasks)
+        rp = harness_manager.get_resume_point()
+        assert rp.next_task_id == 'ALL_DONE'
+
+    def test_no_progress_md_returns_empty_context(self, harness_manager, temp_change_dir):
+        """Test graceful handling when PROGRESS.md is empty."""
+        tasks = [{'id': '1.1', 'description': 'Pending', 'done': False}]
+        harness_manager.init_change('test-change', tasks)
+        rp = harness_manager.get_resume_point()
+        assert rp.context == ''
+        assert rp.failed_attempts == []
+
+    def test_no_completed_tasks_last_id_is_none(self, harness_manager, temp_change_dir):
+        """Test last_completed_id when no tasks are done yet."""
+        tasks = [
+        {'id': '1.1', 'description': 'Pending', 'done': False},
+        {'id': '1.2', 'description': 'Pending', 'done': False},
+        ]
+        harness_manager.init_change('test-change', tasks)
+        rp = harness_manager.get_resume_point()
+        assert rp.next_task_id == '1.1'
+        assert rp.last_completed_id == 'none'
+
+    def test_failed_attempts_parsed_correctly(self, harness_manager, temp_change_dir):
+        """Test that failed_attempts are correctly parsed from PROGRESS.md."""
+        harness_manager.init_change('test-change', [])
+        harness_manager.log_session(
+        completed=['1.1'],
+        leftover='blocked on 2.1',
+        failed_attempts=['httpx retry failed', 'tenacity v7 incompatible'],
+        next_step='try tenacity v8'
+        )
+        rp = harness_manager.get_resume_point()
+        assert len(rp.failed_attempts) == 2
+        assert 'httpx retry failed' in rp.failed_attempts
+        assert 'tenacity v7 incompatible' in rp.failed_attempts
+
+    def test_empty_failed_attempts_returns_empty_list(self, harness_manager, temp_change_dir):
+        """Test that empty failed_attempts returns empty list, not ['無']."""
+        harness_manager.init_change('test-change', [])
+        harness_manager.log_session(
+        completed=['1.1'],
+        leftover='ok',
+        failed_attempts=[],
+        next_step='continue'
+        )
+        rp = harness_manager.get_resume_point()
+        assert rp.failed_attempts == []
+
+    def test_multiple_sessions_reads_last_only(self, harness_manager, temp_change_dir):
+        """Test that only the last session context is returned."""
+        harness_manager.init_change('test-change', [])
+        harness_manager.log_session(['1.1'], 'old context', [], 'old next')
+        harness_manager.log_session(['1.2'], 'new context', [], 'new next')
+        rp = harness_manager.get_resume_point()
+        assert rp.context == 'new context'
+        assert 'old context' not in rp.context
+
+    def test_missing_tasks_json_raises_error(self, harness_manager):
+        """Test that FileNotFoundError raised when tasks.json missing."""
+        with pytest.raises(FileNotFoundError):
+            harness_manager.get_resume_point()
+
+    def test_last_completed_is_previous_task(self, harness_manager, temp_change_dir):
+        """Test last_completed_id is the task before next_task, not last done overall."""
+        tasks = [
+        {'id': '1.1', 'description': 'Done', 'done': True},
+        {'id': '1.2', 'description': 'Next', 'done': False},
+        {'id': '1.3', 'description': 'Done later', 'done': True},
+        ]
+        harness_manager.init_change('test-change', tasks)
+        rp = harness_manager.get_resume_point()
+        assert rp.next_task_id == '1.2'
+        assert rp.last_completed_id == '1.1'  # 不是 1.3
 
 class TestGenerateStartupBrief:
     """Tests for generate_startup_brief method."""
