@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import click
+
 
 @dataclass
 class ResumePoint:
@@ -57,8 +59,8 @@ class HarnessManager:
             )
         except subprocess.CalledProcessError as e:
             # Git 操作失敗時記錄但不拋出錯誤
-            print(f"⚠️  Git operation failed: {e}")
-            print("  Continuing anyway...")
+            click.echo(f"⚠️  Git operation failed: {e}")
+            click.echo("  Continuing anyway...")
     
     def parse_tasks_md(self) -> list[dict]:
         """解析 tasks.md 並轉換為 JSON 格式。
