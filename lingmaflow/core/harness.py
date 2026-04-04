@@ -232,25 +232,7 @@ class HarnessManager:
                 next_task_index = i
                 break
         
-        # 如果所有 task 都完成了
-        if next_task_id is None:
-            change_name = self.change_dir.name
-            return ResumePoint(
-                change_name=change_name,
-                next_task_id='ALL_DONE',
-                last_completed_id=tasks[-1]['id'] if tasks else 'none',
-                context='',
-                failed_attempts=[]
-            )
-        
-        # 往回找前一個 done 的 task
-        last_completed_id = 'none'
-        for i in range(next_task_index - 1, -1, -1):
-            if tasks[i]['done']:
-                last_completed_id = tasks[i]['id']
-                break
-        
-        # 讀取 PROGRESS.md 的最後一個 session
+        # 讀取 PROGRESS.md 的最後一個 session（無論是否全部完成都要讀）
         context = ''
         failed_attempts = []
         
@@ -273,6 +255,24 @@ class HarnessManager:
                     failed_text = failed_match.group(1).strip()
                     if failed_text != '無':
                         failed_attempts = [f.strip() for f in failed_text.split(';')]
+        
+        # 如果所有 task 都完成了
+        if next_task_id is None:
+            change_name = self.change_dir.name
+            return ResumePoint(
+                change_name=change_name,
+                next_task_id='ALL_DONE',
+                last_completed_id=tasks[-1]['id'] if tasks else 'none',
+                context=context,
+                failed_attempts=failed_attempts
+            )
+        
+        # 往回找前一個 done 的 task
+        last_completed_id = 'none'
+        for i in range(next_task_index - 1, -1, -1):
+            if tasks[i]['done']:
+                last_completed_id = tasks[i]['id']
+                break
         
         # 獲取 change name（從目錄名）
         change_name = self.change_dir.name
