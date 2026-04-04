@@ -576,45 +576,31 @@ def harness_init(change_name, path):
 @harness.command('done')
 @click.argument('task_id')
 @click.option('--notes', '-n', default='', help='Notes about the task completion')
+@click.option('--change', '-c', default=None, help='Change name (overrides HARNESS_CHANGE_NAME env var)')
 @click.option('--path', '-p', default='.', help='Path to openspec changes directory')
-def harness_done(task_id, notes, path):
+def harness_done(task_id, notes, change, path):
     """Mark a task as done.
     
     TASK_ID: The ID of the task to mark as done
     """
     try:
-        # Get current change name from context or require explicit path
         project_path = Path(path).resolve()
         
-        # Try to find the current change directory
-        # For now, assume we're working in the current directory's openspec/changes
-        import subprocess
-        result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'],
-            capture_output=True,
-            text=True,
-            cwd=project_path
-        )
-        
-        if result.returncode != 0:
-            click.echo("Error: Not in a git repository", err=True)
-            sys.exit(1)
-        
-        # User needs to specify which change to work with
-        # For simplicity, assume current working directory contains tasks.json
-        import os
-        cwd = Path.cwd()
-        if (cwd / 'tasks.json').exists():
-            change_dir = cwd
-        elif (project_path / 'openspec' / 'changes').exists():
-            # Need to specify change name - use environment variable or error
-            change_name = os.environ.get('HARNESS_CHANGE_NAME')
-            if not change_name:
-                click.echo("Error: Please set HARNESS_CHANGE_NAME environment variable or run from change directory", err=True)
-                sys.exit(1)
-            change_dir = project_path / 'openspec' / 'changes' / change_name
+        # Get change directory: --change param > env var > current dir
+        if change:
+            change_dir = project_path / 'openspec' / 'changes' / change
         else:
-            click.echo("Error: tasks.json not found", err=True)
+            import os
+            change_name = os.environ.get('HARNESS_CHANGE_NAME')
+            if change_name:
+                change_dir = project_path / 'openspec' / 'changes' / change_name
+            else:
+                # Assume current working directory contains tasks.json
+                change_dir = Path.cwd()
+        
+        # Verify it's a valid change directory
+        if not (change_dir / 'tasks.json').exists():
+            click.echo("Error: tasks.json not found. Please use --change or set HARNESS_CHANGE_NAME.", err=True)
             sys.exit(1)
         
         manager = HarnessManager(change_dir)
@@ -636,8 +622,9 @@ def harness_done(task_id, notes, path):
 @click.option('--leftover', '-l', default='', help='Leftover task status')
 @click.option('--failed', '-f', 'failed', default='', help='Failed attempts (semicolon-separated)')
 @click.option('--next', '-n', 'next_step', default='', help='Next step instructions')
+@click.option('--change', '--change-name', default=None, help='Change name (overrides HARNESS_CHANGE_NAME env var)')
 @click.option('--path', '-p', default='.', help='Path to openspec changes directory')
-def harness_log(completed, leftover, failed, next_step, path):
+def harness_log(completed, leftover, failed, next_step, change, path):
     """Log session progress to PROGRESS.md.
     
     If no options provided, enters interactive mode.
@@ -645,18 +632,22 @@ def harness_log(completed, leftover, failed, next_step, path):
     try:
         project_path = Path(path).resolve()
         
-        # Get change directory
-        import os
-        change_name = os.environ.get('HARNESS_CHANGE_NAME')
-        if change_name:
-            change_dir = project_path / 'openspec' / 'changes' / change_name
+        # Get change directory: --change param > env var > current dir
+        if change:
+            change_dir = project_path / 'openspec' / 'changes' / change
         else:
-            # Assume current directory contains tasks.json
-            change_dir = Path.cwd()
-            # Verify it's a valid change directory
-            if not (change_dir / 'tasks.json').exists():
-                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
-                sys.exit(1)
+            import os
+            change_name = os.environ.get('HARNESS_CHANGE_NAME')
+            if change_name:
+                change_dir = project_path / 'openspec' / 'changes' / change_name
+            else:
+                # Assume current directory contains tasks.json
+                change_dir = Path.cwd()
+        
+        # Verify it's a valid change directory
+        if not (change_dir / 'tasks.json').exists():
+            click.echo("Error: tasks.json not found. Please use --change or set HARNESS_CHANGE_NAME.", err=True)
+            sys.exit(1)
         
         manager = HarnessManager(change_dir)
         
@@ -687,23 +678,29 @@ def harness_log(completed, leftover, failed, next_step, path):
 
 
 @harness.command('resume')
+@click.option('--change', '-c', default=None, help='Change name (overrides HARNESS_CHANGE_NAME env var)')
 @click.option('--path', '-p', default='.', help='Path to openspec changes directory')
-def harness_resume(path):
+def harness_resume(change, path):
     """Generate resume brief for agent recovery.
     """
     try:
         project_path = Path(path).resolve()
         
-        # Get change directory
-        import os
-        change_name = os.environ.get('HARNESS_CHANGE_NAME')
-        if change_name:
-            change_dir = project_path / 'openspec' / 'changes' / change_name
+        # Get change directory: --change param > env var > current dir
+        if change:
+            change_dir = project_path / 'openspec' / 'changes' / change
         else:
-            change_dir = Path.cwd()
-            if not (change_dir / 'tasks.json').exists():
-                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
-                sys.exit(1)
+            import os
+            change_name = os.environ.get('HARNESS_CHANGE_NAME')
+            if change_name:
+                change_dir = project_path / 'openspec' / 'changes' / change_name
+            else:
+                change_dir = Path.cwd()
+        
+        # Verify it's a valid change directory
+        if not (change_dir / 'tasks.json').exists():
+            click.echo("Error: tasks.json not found. Please use --change or set HARNESS_CHANGE_NAME.", err=True)
+            sys.exit(1)
         
         manager = HarnessManager(change_dir)
         brief = manager.generate_startup_brief()
@@ -719,23 +716,29 @@ def harness_resume(path):
 
 
 @harness.command('status')
+@click.option('--change', '-c', default=None, help='Change name (overrides HARNESS_CHANGE_NAME env var)')
 @click.option('--path', '-p', default='.', help='Path to openspec changes directory')
-def harness_status(path):
+def harness_status(change, path):
     """Show harness status summary.
     """
     try:
         project_path = Path(path).resolve()
         
-        # Get change directory
-        import os
-        change_name = os.environ.get('HARNESS_CHANGE_NAME')
-        if change_name:
-            change_dir = project_path / 'openspec' / 'changes' / change_name
+        # Get change directory: --change param > env var > current dir
+        if change:
+            change_dir = project_path / 'openspec' / 'changes' / change
         else:
-            change_dir = Path.cwd()
-            if not (change_dir / 'tasks.json').exists():
-                click.echo("Error: tasks.json not found. Please set HARNESS_CHANGE_NAME or run from change directory.", err=True)
-                sys.exit(1)
+            import os
+            change_name = os.environ.get('HARNESS_CHANGE_NAME')
+            if change_name:
+                change_dir = project_path / 'openspec' / 'changes' / change_name
+            else:
+                change_dir = Path.cwd()
+        
+        # Verify it's a valid change directory
+        if not (change_dir / 'tasks.json').exists():
+            click.echo("Error: tasks.json not found. Please use --change or set HARNESS_CHANGE_NAME.", err=True)
+            sys.exit(1)
         
         manager = HarnessManager(change_dir)
         status = manager.get_status()
