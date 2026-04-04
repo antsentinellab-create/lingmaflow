@@ -73,11 +73,11 @@ class HarnessManager:
         content = self.tasks_md_path.read_text(encoding='utf-8')
         
         # 解析 Markdown checkbox 格式
-        # 匹配 - [x] 或 - [ ] 開頭的行
-        pattern = r'^-\s+\[([ x])\]\s+(\d+(?:\.\d+)?(?:-\w+)?)\s+(.+)$'
+        # 匹配 - [x] 或 - [ ] 開頭的行（大小寫皆可）
+        pattern = r'^-\s+\[([ xX])\]\s+(\d+(?:\.\d+)?(?:-\w+)?)\s+(.+)$'
         
         for line in content.splitlines():
-            match = re.match(pattern, line.strip())
+            match = re.match(pattern, line.strip(), re.IGNORECASE)
             if match:
                 done_char, task_id, description = match.groups()
                 tasks.append({
