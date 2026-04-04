@@ -330,7 +330,7 @@ class HarnessManager:
         last_session = 'N/A'
         if self.progress_md_path.exists() and self.progress_md_path.stat().st_size > 0:
             content = self.progress_md_path.read_text(encoding='utf-8')
-            sessions = re.findall(r'^## Session (\d{4}-\d{2}-\d{2}T\d{2}:\d{2})', content, re.MULTILINE)
+            sessions = re.findall(r'^## Session (\d{4}-\d{2}-\d{2} \d{2}:\d{2})', content, re.MULTILINE)
             if sessions:
                 last_session = sessions[-1]
         
