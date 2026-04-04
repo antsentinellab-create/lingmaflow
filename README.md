@@ -1144,9 +1144,165 @@ include = ["lingmaflow*"]
 
 ---
 
+## Harness 系統 Resilient Harness System (v0.3.0)
+
+### 為什麼需要 Harness？
+
+LingmaFlow v0.2.x 有一個根本性問題：TASK_STATE.md 只記錄 PHASE 粒度的進度，當 agent 中斷後，只能靠 grep 推測做到 tasks.md 的哪一行。
+
+Harness 系統解決這個問題，引入三層狀態架構：
+
+| 層次 | 檔案 | 粒度 | 內容 |
+|------|------|------|------|
+| 第一層 | TASK_STATE.md | PHASE | 現有格式不變 |
+| 第二層 | tasks.json | task（如 3.2） | JSON 格式，比 Markdown checkbox 穩定 |
+| 第三層 | PROGRESS.md | session | 決策記憶，防止重複踩坑 |
+
+### 核心概念：決策記憶
+
+Anthropic 2025-11-26 工程文章指出，agent 中斷後最大的問題不是「不知道做到哪」，而是「不知道為什麼失敗過」，導致下一個 session 重複嘗試同樣的死路。
+
+PROGRESS.md 強制記錄失敗嘗試：
+
+Session 2026-04-03 14:30
+完成：task 3.1, 3.2
+遺留：task 3.3 開始到一半，auth module 尚未 import
+失敗記錄：嘗試用 httpx 直接 retry → 和 middleware 衝突
+下一步：繼續 3.3，改用 tenacity library（需版本 >=8.2）
+
+### 為什麼用 JSON 取代 Markdown checkbox？
+
+Anthropic 實測：agent 比較不會不當修改或刪除 JSON 條目，Markdown checkbox 容易被 agent 誤改。
+
+tasks.json 格式：
+```json
+[
+  {
+    "id": "3.2",
+    "description": "LLMGateway retry loop 整合",
+    "done": true,
+    "started_at": null,
+    "completed_at": "2026-04-03T14:30:00Z",
+    "notes": "改用 tenacity library"
+  }
+]
+```
+
+只允許修改 `done`、`completed_at`、`notes` 欄位，禁止修改 `id` 和 `description`。
+
+### CLI 命令
+
+#### 開始執行一個 openspec change
+```bash
+lingmaflow harness init <change_name>
+```
+
+初始化行為：
+- 將現有 `tasks.md` 的 checkbox 格式轉換為 `tasks.json`
+- 建立空的 `PROGRESS.md`
+- 備份原始 `tasks.md` 為 `tasks.md.bak`
+- 執行 git commit
+
+#### 完成一個 task
+```bash
+lingmaflow harness done <task_id> --notes "關鍵決策或注意事項"
+lingmaflow harness done 3.2 --change ai-factory-phase-b --notes "改用 tenacity"
+```
+
+`--notes` 建議填寫，記錄遇到的問題和選擇的方案。
+
+#### 記錄 session（context 快滿時或主動停止前）
+```bash
+lingmaflow harness log \
+  --change <change_name> \
+  --completed "3.1,3.2" \
+  --leftover "3.3 開始到一半" \
+  --failed "httpx retry 和 middleware 衝突" \
+  --next "繼續 3.3，注意 tenacity 版本"
+```
+
+#### 中斷後接回
+```bash
+lingmaflow harness resume --change <change_name>
+```
+
+輸出範例：
+═══════════════════════════════
+RESUME BRIEF
+═══════════════════════════════
+Change: ai-factory-phase-b
+Resume from: task 3.3
+Last completed: task 3.2
+Context from last session:
+
+task 3.3 開始到一半，auth module 尚未 import
+httpx retry 和 middleware 衝突
+
+Startup sequence:
+
+git log --oneline -10
+cat PROGRESS.md
+cat tasks.json | python3 -c "..."
+從 task 3.3 繼續
+═══════════════════════════════
+#### 查看進度
+```bash
+lingmaflow harness status --change <change_name>
+# Change: ai-factory-phase-b
+# Progress: 12/23 tasks done (52%)
+# Current: task 3.3
+# Last session: 2026-04-03 14:30
+```
+
+### 與 AGENTS.md 整合
+
+執行 `lingmaflow agents generate` 後，AGENTS.md 自動包含 harness 執行規則：
+```markdown
+## harness 執行規則
+
+### 開始新 session
+  lingmaflow harness resume --change <change_name>
+  按照 startup sequence 執行
+
+### 完成每個 task 後（立即執行）
+  lingmaflow harness done <task_id> --notes "<關鍵決策>"
+
+### session 結束前
+  lingmaflow harness log --change <change_name> \
+    --completed "..." --leftover "..." \
+    --failed "..." --next "..."
+
+### 禁止行為
+  不可修改 tasks.json 的 id 或 description
+  不可刪除任何 task 條目
+```
+
+### 標準工作流程
+開始執行：
+lingmaflow harness init <change_name>
+/openspec-apply-change <change_name>
+每完成一個 task（agent 執行）：
+lingmaflow harness done <task_id> --notes "..."
+session 結束前（agent 執行）：
+lingmaflow harness log --change <change_name> ...
+中斷後接回：
+lingmaflow harness resume --change <change_name>
+→ 輸出 brief → 貼給新 session 的 agent
+
 ## 版本歷史 Version History
 
-### v0.2.1 (Current) - 2026-04-02
+### v0.3.0 (Current) - 2026-04-04
+
+**新增功能：**
+- ✅ Harness 系統：三層狀態架構（TASK_STATE.md + tasks.json + PROGRESS.md）
+- ✅ tasks.md → tasks.json 自動轉換
+- ✅ PROGRESS.md 決策記憶，防止 agent 重複踩坑
+- ✅ `lingmaflow harness` 子命令群組（init/done/log/resume/status）
+- ✅ `--change` 參數明確指定 change，不依賴環境變數
+- ✅ AGENTS.md 模板自動注入 harness 執行規則
+- ✅ 169 個測試全部通過
+
+### v0.2.1 (Previous) - 2026-04-02
 
 **Bug Fixes:**
 - ✅ 修正 checkpoint result 顯示 ConditionResult 物件問題
