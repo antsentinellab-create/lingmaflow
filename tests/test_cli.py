@@ -744,3 +744,218 @@ class TestCheckpointCommand:
         # Click should show usage error for missing required argument
         assert result.exit_code != 0
         assert "Usage:" in result.output or "Missing" in result.output
+
+
+# ============================================================================
+# Tests for harness CLI commands
+# ============================================================================
+
+class TestHarnessInitCommand:
+    """Test harness init command."""
+
+    def test_harness_init_creates_files(self, runner, tmp_project):
+        """Test harness init creates tasks.json and PROGRESS.md."""
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+
+        tasks_md = change_dir / 'tasks.md'
+        tasks_md.write_text(
+            "- [x] 1.1 Setup\n"
+            "- [ ] 1.2 Implement\n",
+            encoding='utf-8'
+        )
+
+        result = runner.invoke(cli, [
+            'harness', 'init', 'test-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 0
+        assert (change_dir / 'tasks.json').exists()
+        assert (change_dir / 'PROGRESS.md').exists()
+
+    def test_harness_init_missing_change_dir(self, runner, tmp_project):
+        """Test harness init fails when change dir doesn't exist."""
+        result = runner.invoke(cli, [
+            'harness', 'init', 'nonexistent-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 1
+        assert 'Error' in result.output
+
+    def test_harness_init_converts_tasks_correctly(self, runner, tmp_project):
+        """Test harness init converts tasks.md to correct JSON."""
+        import json
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+        (change_dir / 'tasks.md').write_text(
+            "- [x] 1.1 Done task\n"
+            "- [ ] 1.2 Pending task\n",
+            encoding='utf-8'
+        )
+
+        runner.invoke(cli, ['harness', 'init', 'test-change', '--path', str(tmp_project)])
+
+        tasks = json.loads((change_dir / 'tasks.json').read_text())
+        assert len(tasks) == 2
+        assert tasks[0]['done'] is True
+        assert tasks[1]['done'] is False
+
+
+class TestHarnessDoneCommand:
+    """Test harness done command."""
+
+    def _setup_change(self, tmp_project):
+        """Helper to create initialized change dir."""
+        import json
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+        tasks = [
+            {'id': '1.1', 'description': 'Task one', 'done': False,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+            {'id': '1.2', 'description': 'Task two', 'done': False,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+        ]
+        (change_dir / 'tasks.json').write_text(json.dumps(tasks), encoding='utf-8')
+        (change_dir / 'PROGRESS.md').write_text('', encoding='utf-8')
+        return change_dir
+
+    def test_harness_done_marks_task(self, runner, tmp_project):
+        """Test harness done marks task as complete."""
+        import json
+        change_dir = self._setup_change(tmp_project)
+
+        result = runner.invoke(cli, [
+            'harness', 'done', '1.1',
+            '--change', 'test-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 0
+        tasks = json.loads((change_dir / 'tasks.json').read_text())
+        assert tasks[0]['done'] is True
+
+    def test_harness_done_with_notes(self, runner, tmp_project):
+        """Test harness done saves notes."""
+        import json
+        change_dir = self._setup_change(tmp_project)
+
+        runner.invoke(cli, [
+            'harness', 'done', '1.1',
+            '--change', 'test-change',
+            '--notes', 'used tenacity v8',
+            '--path', str(tmp_project)
+        ])
+
+        tasks = json.loads((change_dir / 'tasks.json').read_text())
+        assert tasks[0]['notes'] == 'used tenacity v8'
+
+    def test_harness_done_invalid_task_id(self, runner, tmp_project):
+        """Test harness done fails for non-existent task."""
+        self._setup_change(tmp_project)
+
+        result = runner.invoke(cli, [
+            'harness', 'done', '9.9',
+            '--change', 'test-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 1
+        assert 'Error' in result.output
+
+
+class TestHarnessResumeCommand:
+    """Test harness resume command."""
+
+    def _setup_change(self, tmp_project, tasks):
+        """Helper to create initialized change dir."""
+        import json
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+        (change_dir / 'tasks.json').write_text(json.dumps(tasks), encoding='utf-8')
+        (change_dir / 'PROGRESS.md').write_text('', encoding='utf-8')
+        return change_dir
+
+    def test_harness_resume_shows_brief(self, runner, tmp_project):
+        """Test harness resume outputs RESUME BRIEF."""
+        self._setup_change(tmp_project, [
+            {'id': '1.1', 'description': 'Done', 'done': True,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+            {'id': '1.2', 'description': 'Next', 'done': False,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+        ])
+
+        result = runner.invoke(cli, [
+            'harness', 'resume',
+            '--change', 'test-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 0
+        assert 'RESUME BRIEF' in result.output
+        assert 'task 1.2' in result.output
+
+    def test_harness_resume_missing_change(self, runner, tmp_project):
+        """Test harness resume fails when change not found."""
+        result = runner.invoke(cli, [
+            'harness', 'resume',
+            '--change', 'nonexistent',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 1
+
+
+class TestHarnessStatusCommand:
+    """Test harness status command."""
+
+    def test_harness_status_shows_progress(self, runner, tmp_project):
+        """Test harness status shows correct progress."""
+        import json
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+        tasks = [
+            {'id': '1.1', 'description': 'Done', 'done': True,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+            {'id': '1.2', 'description': 'Pending', 'done': False,
+             'started_at': None, 'completed_at': None, 'notes': ''},
+        ]
+        (change_dir / 'tasks.json').write_text(json.dumps(tasks), encoding='utf-8')
+        (change_dir / 'PROGRESS.md').write_text('', encoding='utf-8')
+
+        result = runner.invoke(cli, [
+            'harness', 'status',
+            '--change', 'test-change',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 0
+        assert '1/2' in result.output
+        assert '50%' in result.output
+
+
+class TestHarnessLogCommand:
+    """Test harness log command."""
+
+    def test_harness_log_writes_progress(self, runner, tmp_project):
+        """Test harness log writes session to PROGRESS.md."""
+        change_dir = tmp_project / 'openspec' / 'changes' / 'test-change'
+        change_dir.mkdir(parents=True)
+        (change_dir / 'tasks.json').write_text('[]', encoding='utf-8')
+        (change_dir / 'PROGRESS.md').write_text('', encoding='utf-8')
+
+        result = runner.invoke(cli, [
+            'harness', 'log',
+            '--change', 'test-change',
+            '--completed', '1.1,1.2',
+            '--leftover', 'task 1.3 in progress',
+            '--failed', 'attempt 1 failed',
+            '--next', 'continue 1.3',
+            '--path', str(tmp_project)
+        ])
+
+        assert result.exit_code == 0
+        content = (change_dir / 'PROGRESS.md').read_text()
+        assert '## Session' in content
+        assert 'task 1.3 in progress' in content
