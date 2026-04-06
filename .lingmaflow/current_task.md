@@ -1,6 +1,6 @@
 # 當前任務
 
-## 步驟：PHASE-5
+## 步驟：PHASE-7
 
 ## 說明：/openspec-apply-change lingmaflow-phase5-resilient-harness
 
