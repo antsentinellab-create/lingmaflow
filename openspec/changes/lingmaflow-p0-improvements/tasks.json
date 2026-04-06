@@ -44,7 +44,9 @@
   {
     "id": "2.1",
     "description": "找到 checkpoint 的實作位置",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:03:26.780182Z",
+    "notes": "checkpoint 實作在 lingmaflow/cli/lingmaflow.py 第 464 行，成功推進後已加入 auto-prepare 邏輯"
   },
   {
     "id": "2.2",
