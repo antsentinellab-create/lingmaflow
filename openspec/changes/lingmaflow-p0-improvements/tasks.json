@@ -86,7 +86,9 @@
   {
     "id": "4.1",
     "description": "執行完整測試套件",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:07:43.944853Z",
+    "notes": "總測試數: 195，全部通過，無 regression"
   },
   {
     "id": "4.2",
