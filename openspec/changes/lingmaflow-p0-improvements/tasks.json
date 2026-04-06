@@ -65,7 +65,9 @@
   {
     "id": "3.1",
     "description": "找到 openspec-apply-change 模板位置",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:06:09.599224Z",
+    "notes": "openspec-apply-change 模板位於 ~/.lingma/skills/openspec-apply-change/SKILL.md"
   },
   {
     "id": "3.2",
