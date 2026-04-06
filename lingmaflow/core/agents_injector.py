@@ -186,7 +186,7 @@ class AgentsInjector:
                 f"Cannot write to {output_path}: {e}"
             )
     
-    def update(self, output_path: Path) -> None:
+    def update(self, output_path: Path, project_path: Path = None) -> None:
         """Update an existing AGENTS.md file or create new one.
         
         Overwrites the existing file if it exists, creates a new
@@ -194,10 +194,10 @@ class AgentsInjector:
         
         Args:
             output_path: Path where AGENTS.md should be written
+            project_path: Optional path to project root for harness detection
             
         Raises:
             InjectionError: If the path cannot be written to
         """
-        # For now, update behaves the same as inject
-        # Always overwrites with current state
-        self.inject(output_path)
+        # Delegates to inject to keep behaviour consistent
+        self.inject(output_path, project_path=project_path)

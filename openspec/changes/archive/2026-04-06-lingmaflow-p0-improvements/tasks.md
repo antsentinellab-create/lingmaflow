@@ -12,7 +12,7 @@
 
 ## Section 1：修改 agents_injector.py，加入 harness 強制規則
 
-- [ ] 1.1 閱讀現有 agents_injector.py
+- [x] 1.1 閱讀現有 agents_injector.py
 ```bash
 cat lingmaflow/agents_injector.py
 ```
@@ -26,7 +26,7 @@ lingmaflow harness done 1.1 --notes "generate() 簽名: <填入實際簽名>"
 輸出「✅ Task 1.1 完成，等待確認」後停止。
 ---
 
-- [ ] 1.2 新增 `_has_harness()` 方法
+- [x] 1.2 新增 `_has_harness()` 方法
 在 `agents_injector.py` 加入以下方法（加在 class 內，`generate()` 之前）：
 ```python
 def _has_harness(self, project_path: Path) -> bool:
@@ -55,7 +55,7 @@ lingmaflow harness done 1.2 --notes "_has_harness 加入成功"
 輸出「✅ Task 1.2 完成，等待確認」後停止。
 ---
 
-- [ ] 1.3 新增 HARNESS_RULES 字串常數
+- [x] 1.3 新增 HARNESS_RULES 字串常數
 在 `agents_injector.py` 的常數區塊（或檔案頂端）加入：
 ```python
 HARNESS_RULES = """
@@ -89,7 +89,7 @@ lingmaflow harness done 1.3 --notes "HARNESS_RULES 常數加入成功"
 輸出「✅ Task 1.3 完成，等待確認」後停止。
 ---
 
-- [ ] 1.4 修改 `generate()` 方法，偵測 harness 並注入規則
+- [x] 1.4 修改 `generate()` 方法，偵測 harness 並注入規則
 修改 `generate()` 方法，加入 `project_path` 可選參數，並在有 harness 時附加 `HARNESS_RULES`：
 ```python
 def generate(self, force: bool = False, project_path: Path = None) -> str:
@@ -123,7 +123,7 @@ lingmaflow harness done 1.4 --notes "generate() 向後相容，harness 偵測正
 輸出「✅ Task 1.4 完成，等待確認」後停止。
 ---
 
-- [ ] 1.5 更新 CLI 的 agents generate 命令，傳入 project_path
+- [x] 1.5 更新 CLI 的 agents generate 命令，傳入 project_path
 找到 `lingmaflow/cli.py`（或對應的 CLI 入口）中 `agents generate` 的 handler，
 加入 `project_path=Path(".")` 傳遞：
 ```python
@@ -149,7 +149,7 @@ lingmaflow harness done 1.5 --notes "CLI 傳入 project_path 成功"
 輸出「✅ Task 1.5 完成，等待確認」後停止。
 ---
 
-- [ ] 1.6 補充 Section 1 的測試
+- [x] 1.6 補充 Section 1 的測試
 在 `tests/` 目錄新增或修改對應測試，確保：
 - `test_has_harness_returns_false_when_no_tasks_json()`
 - `test_has_harness_returns_true_when_tasks_json_exists()`
@@ -168,7 +168,7 @@ lingmaflow harness done 1.6 --notes "新增 4 個測試，全部通過"
 
 ## Section 2：checkpoint 成功後自動執行 prepare
 
-- [ ] 2.1 找到 checkpoint 的實作位置
+- [x] 2.1 找到 checkpoint 的實作位置
 ```bash
 grep -rn "def checkpoint" lingmaflow/
 grep -rn "checkpoint" lingmaflow/cli.py | head -20
@@ -182,7 +182,7 @@ lingmaflow harness done 2.1 --notes "checkpoint 實作在: <填入檔案路徑>"
 輸出「✅ Task 2.1 完成，等待確認」後停止。
 ---
 
-- [ ] 2.2 修改 checkpoint，成功推進後呼叫 prepare
+- [x] 2.2 修改 checkpoint，成功推進後呼叫 prepare
 在 checkpoint 成功推進的分支加入 `prepare()` 呼叫：
 ```python
 # 推進成功後（示意，依實際程式碼調整）
@@ -212,7 +212,7 @@ lingmaflow harness done 2.2 --notes "auto-prepare 加入，失敗不中斷主流
 輸出「✅ Task 2.2 完成，等待確認」後停止。
 ---
 
-- [ ] 2.3 補充 Section 2 的測試
+- [x] 2.3 補充 Section 2 的測試
 在 `tests/` 新增：
 - `test_checkpoint_calls_prepare_on_success()`：mock prepare，驗證被呼叫
 - `test_checkpoint_succeeds_even_if_prepare_fails()`：prepare 拋例外時 checkpoint 仍成功
@@ -229,7 +229,7 @@ lingmaflow harness done 2.3 --notes "checkpoint auto-prepare 測試通過"
 
 ## Section 3：更新 openspec-apply-change 指令模板
 
-- [ ] 3.1 找到 openspec-apply-change 模板位置
+- [x] 3.1 找到 openspec-apply-change 模板位置
 ```bash
 find openspec/ -name "*.md" | xargs grep -l "apply-change" 2>/dev/null | head -5
 ls openspec/
@@ -242,7 +242,7 @@ lingmaflow harness done 3.1 --notes "模板位置: <填入路徑>"
 輸出「✅ Task 3.1 完成，等待確認」後停止。
 ---
 
-- [ ] 3.2 在 openspec-apply-change 指令模板加入強制停止規則
+- [x] 3.2 在 openspec-apply-change 指令模板加入強制停止規則
 在模板的「執行規則」或「強制規則」區塊加入：
 ```markdown
 ## 強制停止規則（不可忽略）
@@ -268,7 +268,7 @@ lingmaflow harness done 3.2 --notes "強制停止規則加入模板"
 輸出「✅ Task 3.2 完成，等待確認」後停止。
 ---
 
-- [ ] 3.3 更新 AGENTS.md 模板，加入每次啟動強制讀取規則
+- [x] 3.3 更新 AGENTS.md 模板，加入每次啟動強制讀取規則
 找到 `lingmaflow/agents_injector.py` 中的 AGENTS.md 基礎模板，確保包含：
 ```markdown
 ## 每次啟動強制執行（順序不可改）
@@ -301,7 +301,7 @@ lingmaflow harness done 3.3 --notes "AGENTS.md 模板包含啟動強制讀取規
 
 ## Section 4：全面驗證
 
-- [ ] 4.1 執行完整測試套件
+- [x] 4.1 執行完整測試套件
 ```bash
 pytest tests/ -v --tb=short 2>&1 | tail -30
 ```
@@ -315,7 +315,7 @@ lingmaflow harness done 4.1 --notes "總測試數: <N>，全部通過"
 輸出「✅ Task 4.1 完成，等待確認」後停止。
 ---
 
-- [ ] 4.2 執行 lingmaflow verify
+- [x] 4.2 執行 lingmaflow verify
 ```bash
 lingmaflow verify
 ```
@@ -326,7 +326,7 @@ lingmaflow harness done 4.2 --notes "所有 Done Conditions 通過"
 輸出「✅ Task 4.2 完成，等待確認」後停止。
 ---
 
-- [ ] 4.3 session 結束記錄
+- [x] 4.3 session 結束記錄
 ```bash
 lingmaflow harness log \
   --change lingmaflow-p0-improvements \
