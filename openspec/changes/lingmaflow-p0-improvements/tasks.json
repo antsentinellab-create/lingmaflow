@@ -30,7 +30,9 @@
   {
     "id": "1.5",
     "description": "更新 CLI 的 agents generate 命令，傳入 project_path",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:01:32.555028Z",
+    "notes": "CLI 傳入 project_path 成功，AGENTS.md 正確包含 harness 規則"
   },
   {
     "id": "1.6",
