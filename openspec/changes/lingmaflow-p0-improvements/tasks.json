@@ -79,7 +79,9 @@
   {
     "id": "3.3",
     "description": "更新 AGENTS.md 模板，加入每次啟動強制讀取規則",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:07:12.728404Z",
+    "notes": "AGENTS.md 模板加入每次啟動強制讀取 current_task.md，順序不可改"
   },
   {
     "id": "4.1",
