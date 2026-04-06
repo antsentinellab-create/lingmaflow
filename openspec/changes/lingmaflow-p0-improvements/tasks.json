@@ -58,7 +58,9 @@
   {
     "id": "2.3",
     "description": "補充 Section 2 的測試",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:05:46.110450Z",
+    "notes": "新增 2 個 checkpoint 測試（auto-prepare 成功 + 失敗不中斷），全部通過"
   },
   {
     "id": "3.1",
