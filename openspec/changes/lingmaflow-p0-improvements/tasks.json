@@ -72,7 +72,9 @@
   {
     "id": "3.2",
     "description": "在 openspec-apply-change 指令模板加入強制停止規則",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:06:35.717711Z",
+    "notes": "在 openspec-apply-change SKILL.md 加入強制停止規則，包含 per-section 和 per-task 的停止點"
   },
   {
     "id": "3.3",
