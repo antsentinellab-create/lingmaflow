@@ -51,7 +51,9 @@
   {
     "id": "2.2",
     "description": "修改 checkpoint，成功推進後呼叫 prepare",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:03:42.848320Z",
+    "notes": "auto-prepare 加入 checkpoint，失敗不中斷主流程，成功時自動生成 current_task.md"
   },
   {
     "id": "2.3",
