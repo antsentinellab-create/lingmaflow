@@ -53,13 +53,34 @@ def status(path):
         click.echo(f"Last Result: {manager.state.last_result or 'None'}")
         click.echo(f"Next Action: {manager.state.next_action or 'None'}")
         
+        # 嘗試讀取 active_change，附加 harness 區塊
+        active_change_file = project_path / '.lingmaflow' / 'active_change'
+        if active_change_file.exists():
+            try:
+                active_change = active_change_file.read_text(encoding='utf-8').strip()
+                change_dir = project_path / 'openspec' / 'changes' / active_change
+                if change_dir.exists():
+                    harness_manager = HarnessManager(change_dir)
+                    hs = harness_manager.get_status()
+                    if 'error' not in hs:
+                        click.echo("")
+                        click.echo("── Harness ──────────────────────")
+                        click.echo(f"Change:       {hs['change_name']}")
+                        click.echo(f"Progress:     {hs['done']}/{hs['total']} tasks ({hs['percentage']:.0f}%)")
+                        click.echo(f"Current task: {hs['current_task'] or 'ALL DONE'}")
+                        last_session = hs['last_session']
+                        click.echo(f"Last session: {last_session if last_session != 'N/A' else 'None'}")
+                        click.echo("─────────────────────────────────")
+            except Exception:
+                pass  # harness 區塊失敗不影響主流程
+
         if manager.state.unresolved:
             click.echo(f"Unresolved Issues ({len(manager.state.unresolved)}):")
             for i, issue in enumerate(manager.state.unresolved, 1):
                 click.echo(f"  {i}. {issue}")
         else:
             click.echo("Unresolved Issues: None")
-            
+
     except MalformedStateFileError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -709,7 +730,13 @@ def harness_init(change_name, path):
         
         manager = HarnessManager(change_dir)
         manager.init_change(change_name)
-        
+
+        # 寫入 active_change，讓 lingmaflow status 知道目前活躍的 change
+        lingmaflow_dir = project_path / '.lingmaflow'
+        lingmaflow_dir.mkdir(parents=True, exist_ok=True)
+        (lingmaflow_dir / 'active_change').write_text(change_name, encoding='utf-8')
+        click.echo(f"✓ active_change 設為 {change_name}")
+
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

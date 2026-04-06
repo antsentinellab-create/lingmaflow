@@ -1044,3 +1044,94 @@ class TestHarnessLogCommand:
         content = (change_dir / 'PROGRESS.md').read_text()
         assert '## Session' in content
         assert 'task 1.3 in progress' in content
+
+
+class TestHarnessInitActiveChange:
+    """Tests for harness init writing active_change file."""
+
+    def test_harness_init_writes_active_change(self, runner, tmp_project):
+        """harness init 後 .lingmaflow/active_change 存在且內容正確。"""
+        change_dir = tmp_project / 'openspec' / 'changes' / 'my-change'
+        change_dir.mkdir(parents=True)
+        (change_dir / 'tasks.md').write_text("- [ ] 1.1 Setup\n", encoding='utf-8')
+
+        result = runner.invoke(cli, ['harness', 'init', 'my-change', '--path', str(tmp_project)])
+
+        assert result.exit_code == 0
+        active_change_file = tmp_project / '.lingmaflow' / 'active_change'
+        assert active_change_file.exists()
+        assert active_change_file.read_text(encoding='utf-8').strip() == 'my-change'
+
+    def test_harness_init_overwrites_active_change(self, runner, tmp_project):
+        """harness init 覆蓋已存在的 active_change。"""
+        # 先建立舊的 active_change
+        lingmaflow_dir = tmp_project / '.lingmaflow'
+        lingmaflow_dir.mkdir()
+        (lingmaflow_dir / 'active_change').write_text('old-change', encoding='utf-8')
+
+        change_dir = tmp_project / 'openspec' / 'changes' / 'new-change'
+        change_dir.mkdir(parents=True)
+        (change_dir / 'tasks.md').write_text("- [ ] 1.1 Setup\n", encoding='utf-8')
+
+        result = runner.invoke(cli, ['harness', 'init', 'new-change', '--path', str(tmp_project)])
+
+        assert result.exit_code == 0
+        active = (tmp_project / '.lingmaflow' / 'active_change').read_text(encoding='utf-8').strip()
+        assert active == 'new-change'
+
+
+class TestStatusHarnessBlock:
+    """Tests for status command harness block integration."""
+
+    def _setup_task_state(self, tmp_project):
+        content = """當前步驟：PHASE-6
+狀態：in_progress
+上一步結果：Done
+下一步動作：Continue
+未解決問題：
+最後更新：2026-04-03T10:00:00
+
+## Done Conditions
+- [ ] file:dummy.py
+"""
+        (tmp_project / 'TASK_STATE.md').write_text(content, encoding='utf-8')
+
+    def _setup_harness(self, tmp_project, change_name='my-change'):
+        import json
+        change_dir = tmp_project / 'openspec' / 'changes' / change_name
+        change_dir.mkdir(parents=True)
+        tasks = [
+            {"id": "1.1", "description": "Setup", "done": True,
+             "started_at": None, "completed_at": "2026-04-03T10:00:00Z", "notes": ""},
+            {"id": "1.2", "description": "Implement", "done": False,
+             "started_at": None, "completed_at": None, "notes": ""},
+        ]
+        (change_dir / 'tasks.json').write_text(json.dumps(tasks), encoding='utf-8')
+        (change_dir / 'PROGRESS.md').write_text('', encoding='utf-8')
+
+        lingmaflow_dir = tmp_project / '.lingmaflow'
+        lingmaflow_dir.mkdir(exist_ok=True)
+        (lingmaflow_dir / 'active_change').write_text(change_name, encoding='utf-8')
+
+    def test_status_shows_harness_block_when_active_change_exists(self, runner, tmp_project):
+        """active_change 存在時 status 顯示 harness 區塊。"""
+        self._setup_task_state(tmp_project)
+        self._setup_harness(tmp_project)
+
+        result = runner.invoke(cli, ['status', '--path', str(tmp_project)])
+
+        assert result.exit_code == 0
+        assert '── Harness' in result.output
+        assert 'my-change' in result.output
+        assert '1/2 tasks' in result.output
+        assert 'Current task: 1.2' in result.output
+
+    def test_status_no_harness_block_without_active_change(self, runner, tmp_project):
+        """active_change 不存在時 status 不顯示 harness 區塊（向後相容）。"""
+        self._setup_task_state(tmp_project)
+
+        result = runner.invoke(cli, ['status', '--path', str(tmp_project)])
+
+        assert result.exit_code == 0
+        assert '── Harness' not in result.output
+        assert 'Unresolved Issues: None' in result.output
