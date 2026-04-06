@@ -23,7 +23,9 @@
   {
     "id": "1.4",
     "description": "修改 `generate()` 方法，偵測 harness 並注入規則",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:00:46.166728Z",
+    "notes": "generate() 向後相容，harness 偵測正確，project_path=None 時行為不變"
   },
   {
     "id": "1.5",
