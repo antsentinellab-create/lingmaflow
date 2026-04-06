@@ -356,3 +356,93 @@ class TestGetStatus:
         assert status['total'] == 2
         assert status['done'] == 1
         assert status['percentage'] == 50.0
+
+
+class TestGenerateStartupBriefWithTaskState:
+    """Tests for generate_startup_brief() with TASK_STATE.md integration."""
+
+    def _make_change_dir(self, tmp_path):
+        change_dir = tmp_path / "openspec" / "changes" / "test-change"
+        change_dir.mkdir(parents=True)
+        tasks = [
+            {"id": "1.1", "description": "Setup", "done": True,
+             "started_at": None, "completed_at": "2026-04-03T10:00:00Z", "notes": ""},
+            {"id": "1.2", "description": "Implement", "done": False,
+             "started_at": None, "completed_at": None, "notes": ""},
+        ]
+        import json
+        (change_dir / "tasks.json").write_text(json.dumps(tasks), encoding="utf-8")
+        (change_dir / "PROGRESS.md").write_text("", encoding="utf-8")
+        return change_dir
+
+    def _make_task_state(self, tmp_path, step="PHASE-B", status="in_progress"):
+        content = f"""當前步驟：{step}
+狀態：{status}
+上一步結果：Done
+下一步動作：Continue
+未解決問題：
+最後更新：2026-04-03T10:00:00
+
+## Done Conditions
+- [ ] file:dummy.py
+"""
+        (tmp_path / "TASK_STATE.md").write_text(content, encoding="utf-8")
+
+    def test_brief_includes_phase_when_task_state_exists(self, tmp_path):
+        """brief に TASK_STATE.md の Phase が含まれること"""
+        change_dir = self._make_change_dir(tmp_path)
+        self._make_task_state(tmp_path, step="PHASE-B")
+
+        from lingmaflow.core.harness import HarnessManager
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief(project_path=tmp_path)
+
+        assert "PHASE-B" in brief
+        assert "TASK_STATE.md" in brief
+
+    def test_brief_excludes_phase_when_no_project_path(self, tmp_path):
+        """project_path なしの場合、Phase 行が含まれないこと（後方互換）"""
+        change_dir = self._make_change_dir(tmp_path)
+        self._make_task_state(tmp_path, step="PHASE-B")
+
+        from lingmaflow.core.harness import HarnessManager
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief()
+
+        assert "PHASE-B" not in brief
+
+    def test_brief_excludes_phase_when_task_state_missing(self, tmp_path):
+        """TASK_STATE.md が存在しない場合、エラーにならず Phase 行が省略されること"""
+        change_dir = self._make_change_dir(tmp_path)
+        # TASK_STATE.md を作らない
+
+        from lingmaflow.core.harness import HarnessManager
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief(project_path=tmp_path)
+
+        assert "RESUME BRIEF" in brief
+        assert "PHASE" not in brief
+
+    def test_brief_still_works_when_task_state_malformed(self, tmp_path):
+        """TASK_STATE.md が壊れていても brief 生成が成功すること"""
+        change_dir = self._make_change_dir(tmp_path)
+        (tmp_path / "TASK_STATE.md").write_text("壊れたコンテンツ", encoding="utf-8")
+
+        from lingmaflow.core.harness import HarnessManager
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief(project_path=tmp_path)
+
+        assert "RESUME BRIEF" in brief
+
+    def test_startup_sequence_includes_task_state(self, tmp_path):
+        """Startup sequence の最初のステップが TASK_STATE.md であること"""
+        change_dir = self._make_change_dir(tmp_path)
+
+        from lingmaflow.core.harness import HarnessManager
+        manager = HarnessManager(change_dir)
+        brief = manager.generate_startup_brief(project_path=tmp_path)
+
+        lines = brief.splitlines()
+        startup_start = next(i for i, l in enumerate(lines) if "Startup sequence" in l)
+        first_step = lines[startup_start + 1]
+        assert "TASK_STATE.md" in first_step

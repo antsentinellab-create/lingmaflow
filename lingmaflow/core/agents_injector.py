@@ -23,14 +23,11 @@ lingmaflow harness done <task_id> --notes "<關鍵決策>"
 
 ### session 結束前，執行
 ```bash
-lingmaflow harness log --change <change_name> \\
-  --completed "<完成的 task IDs>" \\
-  --leftover "<未完成的 task>" \\
-  --failed "<失敗記錄，無則填 none>" \\
-  --next "<下一步指引>"
+lingmaflow harness log --change <change_name> --completed "<完成的 task IDs>" --leftover "<未完成的 task>" --failed "<失敗記錄，無則填 none>" --next "<下一步指引>"
 ```
 
 ### 禁止行為
+
 - 不可跳過 harness done，即使 task 很簡單
 - 不可修改 tasks.json 的 id 或 description 欄位
 - 不可刪除任何 task 條目

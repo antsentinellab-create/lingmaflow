@@ -18,9 +18,15 @@
 ## Done Condition 規則
 
 每個步驟必須全部達成才能推進：
+- behave features/<對應的.feature>   ← 行為驗證（先跑）
 - 對應檔案存在
-- pytest 全綠
+- pytest 全綠                         ← 回歸驗證（後跑）
 - TASK_STATE.md 已更新
+
+## 禁止行為
+- 不得修改 features/ 目錄下的任何檔案
+- 不得刪除或跳過任何 Scenario
+- behave 未全綠不得執行 lingmaflow checkpoint
 
 ## 錯誤處置
 

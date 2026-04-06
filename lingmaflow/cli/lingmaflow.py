@@ -420,6 +420,133 @@ def prepare(path):
         sys.exit(1)
 
 
+@cli.command('init-phase')
+@click.argument('phase_name')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+@click.option('--next-action', '-n', default=None, help='下一步動作描述')
+@click.option('--force', is_flag=True, default=False, help='覆蓋現有 Done Conditions 而不詢問')
+def init_phase(phase_name, path, next_action, force):
+    """為指定 Phase 初始化 Done Conditions 模板。
+
+    PHASE_NAME: Phase 名稱，例如 PHASE-B、PHASE-C
+
+    \b
+    預設模板類型（依名稱自動偵測）：
+      *test* / *pytest*  → pytest 模板
+      *harness*          → harness 模板
+      *refactor*         → refactor 模板
+      其他               → 通用模板
+
+    範例：
+      lingmaflow init-phase PHASE-B
+      lingmaflow init-phase PHASE-C --next-action "實作 retry 機制"
+    """
+    # Phase 名稱轉小寫用來偵測模板類型
+    phase_lower = phase_name.lower()
+
+    # 預設 Done Conditions 模板
+    TEMPLATES = {
+        'test': [
+            f"file:tests/test_{phase_lower.replace('-', '_')}.py",
+            f"pytest:tests/test_{phase_lower.replace('-', '_')}.py",
+            "pytest:tests/",
+        ],
+        'harness': [
+            "file:lingmaflow/core/harness.py",
+            "func:lingmaflow.core.HarnessManager",
+            "file:tests/test_harness.py",
+            "pytest:tests/test_harness.py",
+            "pytest:tests/",
+        ],
+        'refactor': [
+            "pytest:tests/",
+        ],
+        'default': [
+            f"file:lingmaflow/core/{phase_lower.replace('-', '_')}.py",
+            f"pytest:tests/",
+        ],
+    }
+
+    # 偵測模板類型
+    if any(k in phase_lower for k in ('test', 'pytest')):
+        template_key = 'test'
+    elif 'harness' in phase_lower:
+        template_key = 'harness'
+    elif 'refactor' in phase_lower:
+        template_key = 'refactor'
+    else:
+        template_key = 'default'
+
+    conditions = TEMPLATES[template_key]
+
+    try:
+        project_path = Path(path).resolve()
+        task_state_file = project_path / 'TASK_STATE.md'
+
+        if not task_state_file.exists():
+            click.echo(f"Error: TASK_STATE.md not found in {project_path}", err=True)
+            sys.exit(1)
+
+        # 讀取現有狀態
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+
+        # 確認是否覆蓋
+        existing_conditions = manager.get_conditions()
+        if existing_conditions and not force:
+            click.echo(f"現有 Done Conditions ({len(existing_conditions)} 項)：")
+            for c in existing_conditions:
+                click.echo(f"  - {c}")
+            if not click.confirm(f"覆蓋為 {phase_name} 的模板？"):
+                click.echo("已取消。")
+                sys.exit(0)
+
+        # 讀取現有 TASK_STATE.md 原始內容
+        raw = task_state_file.read_text(encoding='utf-8')
+
+        # 更新當前步驟
+        import re
+        raw = re.sub(r'^當前步驟：.+$', f'當前步驟：{phase_name}', raw, flags=re.MULTILINE)
+
+        # 更新狀態為 in_progress
+        raw = re.sub(r'^狀態：.+$', '狀態：in_progress', raw, flags=re.MULTILINE)
+
+        # 更新下一步動作
+        if next_action:
+            raw = re.sub(r'^下一步動作：.*$', f'下一步動作：{next_action}', raw, flags=re.MULTILINE)
+
+        # 重建 Done Conditions 區塊
+        conditions_block = "## Done Conditions\n"
+        for cond in conditions:
+            conditions_block += f"- [ ] {cond}\n"
+
+        if "## Done Conditions" in raw:
+            # 替換現有區塊（到下一個 ## 或結尾）
+            raw = re.sub(
+                r'## Done Conditions\n(?:- \[[ x]\] .+\n)*',
+                conditions_block,
+                raw
+            )
+        else:
+            raw = raw.rstrip() + "\n" + conditions_block
+
+        task_state_file.write_text(raw, encoding='utf-8')
+
+        click.echo(f"✓ {phase_name} 初始化完成")
+        click.echo(f"  模板類型：{template_key}")
+        click.echo(f"  Done Conditions ({len(conditions)} 項)：")
+        for c in conditions:
+            click.echo(f"    - [ ] {c}")
+        click.echo("")
+        click.echo("下一步：")
+        click.echo("  lingmaflow prepare")
+        click.echo("  lingmaflow verify")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
 @cli.command('verify')
 @click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
 def verify(path):
@@ -721,7 +848,7 @@ def harness_resume(change, path):
             sys.exit(1)
         
         manager = HarnessManager(change_dir)
-        brief = manager.generate_startup_brief()
+        brief = manager.generate_startup_brief(project_path=project_path)
         
         click.echo(brief)
         

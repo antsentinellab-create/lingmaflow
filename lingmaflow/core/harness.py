@@ -285,21 +285,45 @@ class HarnessManager:
             failed_attempts=failed_attempts
         )
     
-    def generate_startup_brief(self) -> str:
+    def generate_startup_brief(self, project_path: Path = None) -> str:
         """生成接回指令字串。
-        
+
+        Args:
+            project_path: 專案根目錄路徑（可選）。
+                         提供時會讀取 TASK_STATE.md，將 Phase 資訊加入 brief。
+
         Returns:
             純文字格式的接回指令
         """
         resume_point = self.get_resume_point()
-        
+
+        # 嘗試讀取 TASK_STATE.md 的 Phase 資訊
+        current_phase = None
+        current_status = None
+        if project_path is not None:
+            task_state_file = Path(project_path) / "TASK_STATE.md"
+            if task_state_file.exists():
+                try:
+                    from lingmaflow.core.task_state import TaskStateManager
+                    tsm = TaskStateManager(task_state_file)
+                    tsm.load()
+                    current_phase = tsm.state.current_step
+                    current_status = tsm.state.status.value if tsm.state.status else None
+                except Exception:
+                    pass  # TASK_STATE.md 讀取失敗不影響主流程
+
         brief = "═══════════════════════════════\n"
         brief += "RESUME BRIEF\n"
         brief += "═══════════════════════════════\n\n"
         brief += f"Change: {resume_point.change_name}\n"
+        if current_phase:
+            brief += f"Phase:  {current_phase}"
+            if current_status:
+                brief += f" ({current_status})"
+            brief += "  ← 來自 TASK_STATE.md\n"
         brief += f"Resume from: task {resume_point.next_task_id}\n"
         brief += f"Last completed: task {resume_point.last_completed_id}\n\n"
-        
+
         if resume_point.context or resume_point.failed_attempts:
             brief += "Context from last session:\n"
             if resume_point.context:
@@ -308,14 +332,14 @@ class HarnessManager:
                 for attempt in resume_point.failed_attempts:
                     brief += f"- {attempt}\n"
             brief += "\n"
-        
+
         brief += "Startup sequence:\n"
-        brief += "1. git log --oneline -10\n"
+        brief += "1. cat TASK_STATE.md\n"
         brief += "2. cat PROGRESS.md\n"
         brief += "3. cat tasks.json | python3 -c \"import json,sys; [print(t['id'],t['description']) for t in json.load(sys.stdin) if not t['done']]\"\n"
         brief += f"4. 從 task {resume_point.next_task_id} 繼續\n"
         brief += "═══════════════════════════════\n"
-        
+
         return brief
     
     def get_status(self) -> dict:
