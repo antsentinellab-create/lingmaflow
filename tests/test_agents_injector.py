@@ -462,3 +462,144 @@ class TestIntegrationWorkflow:
         
         # Old skill should still be present
         assert "initial-skill" in content2
+
+
+# ============================================================================
+# Harness Detection Tests (NEW for P0 improvements)
+# ============================================================================
+
+class TestHarnessDetection:
+    """Tests for _has_harness method."""
+    
+    def test_has_harness_returns_false_when_no_tasks_json(self, tmp_path):
+        """Test _has_harness returns False when no tasks.json exists."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Create openspec structure without tasks.json
+        openspec_changes = tmp_path / "openspec" / "changes"
+        openspec_changes.mkdir(parents=True)
+        
+        result = injector._has_harness(tmp_path)
+        assert result is False
+    
+    def test_has_harness_returns_true_when_tasks_json_exists(self, tmp_path):
+        """Test _has_harness returns True when tasks.json exists."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Create openspec structure with tasks.json
+        change_dir = tmp_path / "openspec" / "changes" / "test-change"
+        change_dir.mkdir(parents=True)
+        (change_dir / "tasks.json").write_text("[]")
+        
+        result = injector._has_harness(tmp_path)
+        assert result is True
+    
+    def test_has_harness_returns_false_when_no_openspec_dir(self, tmp_path):
+        """Test _has_harness returns False when openspec directory doesn't exist."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+
+        result = injector._has_harness(tmp_path)
+        assert result is False
+
+    def test_has_harness_returns_false_on_permission_error(self, tmp_path):
+        """Test _has_harness returns False when openspec dir is not readable."""
+        from unittest.mock import patch
+
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+
+        openspec_path = tmp_path / "openspec" / "changes"
+        openspec_path.mkdir(parents=True)
+
+        with patch("pathlib.Path.iterdir", side_effect=PermissionError("mocked")):
+            result = injector._has_harness(tmp_path)
+
+        assert result is False
+
+    def test_has_harness_ignores_files_in_changes_dir(self, tmp_path):
+        """Test _has_harness skips non-directory entries in changes/."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+
+        openspec_path = tmp_path / "openspec" / "changes"
+        openspec_path.mkdir(parents=True)
+        # Place a file (not a dir) named tasks.json directly in changes/
+        (openspec_path / "tasks.json").write_text("[]")
+
+        result = injector._has_harness(tmp_path)
+        assert result is False
+
+
+class TestGenerateWithHarness:
+    """Tests for generate method with harness detection."""
+    
+    def test_generate_injects_harness_rules_when_harness_detected(self, tmp_path):
+        """Test generate includes HARNESS_RULES when harness is detected."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Create openspec structure with tasks.json
+        change_dir = tmp_path / "openspec" / "changes" / "test-change"
+        change_dir.mkdir(parents=True)
+        (change_dir / "tasks.json").write_text("[]")
+        
+        content = injector.generate(project_path=tmp_path)
+        
+        assert "harness 執行規則" in content
+        assert "lingmaflow harness done" in content
+        assert "lingmaflow harness log" in content
+    
+    def test_generate_backward_compatible_without_project_path(self, tmp_path):
+        """Test generate works without project_path (backward compatibility)."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Should work without project_path
+        content = injector.generate()
+        
+        # Should not include harness rules when project_path is None
+        assert "harness 執行規則" not in content
+    
+    def test_generate_no_harness_rules_when_no_harness(self, tmp_path):
+        """Test generate doesn't include harness rules when harness not detected."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Create openspec structure without tasks.json
+        openspec_changes = tmp_path / "openspec" / "changes"
+        openspec_changes.mkdir(parents=True)
+        
+        content = injector.generate(project_path=tmp_path)
+        
+        assert "harness 執行規則" not in content
+
+
+class TestStartupSection:
+    """Tests for startup_section content in generated AGENTS.md."""
+
+    def test_startup_section_contains_task_state(self, tmp_path):
+        """Test generated AGENTS.md instructs reading TASK_STATE.md."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        content = injector.generate()
+        assert "cat TASK_STATE.md" in content
+
+    def test_startup_section_contains_current_task(self, tmp_path):
+        """Test generated AGENTS.md instructs reading current_task.md."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        content = injector.generate()
+        assert "cat .lingmaflow/current_task.md" in content
+
+    def test_startup_section_step_order(self, tmp_path):
+        """Test current_task.md read comes before done condition check."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        content = injector.generate()
+        pos_task_state = content.index("cat TASK_STATE.md")
+        pos_current_task = content.index("cat .lingmaflow/current_task.md")
+        pos_done_cond = content.index("done condition")
+        assert pos_task_state < pos_current_task < pos_done_cond

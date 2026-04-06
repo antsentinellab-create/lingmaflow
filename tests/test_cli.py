@@ -618,7 +618,11 @@ class TestVerifyCommand:
     def test_verify_command_all_pass(self, runner, tmp_project):
         """Test verify with all passing conditions."""
         # Create TASK_STATE.md with existing files
-        task_state_content = """當前步驟：STEP-01
+        # Create sentinel file inside tmp_project — self-contained, no cwd dependency
+        sentinel_file = tmp_project / 'sentinel.txt'
+        sentinel_file.write_text('exists')
+
+        task_state_content = f"""當前步驟：STEP-01
 狀態：in_progress
 上一步結果：Testing
 下一步動作：Continue
@@ -626,9 +630,9 @@ class TestVerifyCommand:
 最後更新：2024-01-01T00:00:00
 
 ## Done Conditions
-- [x] file:tests/test_cli.py
+    - [x] file:{sentinel_file}
 """
-        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file = tmp_project / 'TASK_STATE.md'
         task_state_file.write_text(task_state_content, encoding='utf-8')
         
         result = runner.invoke(
@@ -744,6 +748,87 @@ class TestCheckpointCommand:
         # Click should show usage error for missing required argument
         assert result.exit_code != 0
         assert "Usage:" in result.output or "Missing" in result.output
+    
+    def test_checkpoint_calls_prepare_on_success(self, runner, tmp_project):
+        """Test checkpoint auto-executes prepare on success."""
+        import json
+        
+        # Create TASK_STATE.md with passing condition
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Done
+下一步動作：Write tests
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [x] file:tests/test_cli.py
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+        
+        # Create skills directory
+        skills_dir = tmp_project / 'skills' / 'test-driven-development'
+        skills_dir.mkdir(parents=True)
+        (skills_dir / 'SKILL.md').write_text("---\nname: test-driven-development\ntriggers:\n  - 測試\n  - pytest\n---\n\nTDD content")
+        
+        result = runner.invoke(
+            cli,
+            ['checkpoint', 'STEP-02', '--path', str(tmp_project)]
+        )
+        
+        assert result.exit_code == 0
+        assert "Advanced to STEP-02" in result.output
+        assert "current_task.md 已自動更新" in result.output
+        
+        # Verify current_task.md was created
+        current_task_file = tmp_project / '.lingmaflow' / 'current_task.md'
+        assert current_task_file.exists()
+        
+        content = current_task_file.read_text(encoding='utf-8')
+        assert "STEP-02" in content
+        assert "Write tests" in content
+    
+    def test_checkpoint_succeeds_even_if_prepare_fails(self, runner, tmp_project):
+        """Test checkpoint succeeds even when prepare fails.
+        
+        Uses mock.patch instead of chmod(0o000) to avoid root-environment false positives.
+        """
+        from unittest.mock import patch
+
+        task_state_content = """當前步驟：STEP-01
+狀態：in_progress
+上一步結果：Done
+下一步動作：Next step
+未解決問題：
+最後更新：2024-01-01T00:00:00
+
+## Done Conditions
+- [x] file:tests/test_cli.py
+"""
+        task_state_file = tmp_project / "TASK_STATE.md"
+        task_state_file.write_text(task_state_content, encoding='utf-8')
+
+        # Mock _run_prepare to raise PermissionError — avoids chmod root bypass
+        with patch(
+            "lingmaflow.cli.lingmaflow._run_prepare",
+            side_effect=PermissionError("mocked permission denied")
+        ):
+            result = runner.invoke(
+                cli,
+                ['checkpoint', 'STEP-02', '--path', str(tmp_project)]
+            )
+
+        # Checkpoint should still succeed
+        assert result.exit_code == 0
+        assert "Advanced to STEP-02" in result.output
+        # Should show warning about prepare failure
+        assert "prepare" in result.output.lower() and ("失敗" in result.output or "fail" in result.output.lower())
+
+        # Verify state was still updated despite prepare failure
+        manager = TaskStateManager(task_state_file)
+        manager.load()
+        assert manager.state.current_step == "STEP-02"
 
 
 # ============================================================================

@@ -309,7 +309,7 @@ def agents_generate(output, force, path):
         task_state_path = output_path.parent / 'TASK_STATE.md'
         
         injector = AgentsInjector(registry, task_state_path)
-        injector.inject(output_path)
+        injector.inject(output_path, project_path=project_path)
         
         click.echo(f"✓ Generated {output_path}")
         click.echo(f"  Skills included: {len(registry.skills)}")
@@ -329,6 +329,77 @@ def agents_generate(output, force, path):
 # Execution Engine Commands (NEW in Phase 4)
 # ============================================================================
 
+def _run_prepare(project_path: Path) -> Path:
+    """Core prepare logic. Extracted for reuse by checkpoint.
+
+    Args:
+        project_path: Resolved project root Path.
+
+    Returns:
+        Path of the generated current_task.md.
+
+    Raises:
+        FileNotFoundError: If TASK_STATE.md does not exist.
+        Exception: Propagates any unexpected error to caller.
+    """
+    task_state_file = project_path / 'TASK_STATE.md'
+
+    if not task_state_file.exists():
+        raise FileNotFoundError(f"TASK_STATE.md not found in {project_path}")
+
+    manager = TaskStateManager(task_state_file)
+    manager.load()
+
+    conditions = manager.get_conditions()
+
+    skills_path = project_path / 'lingmaflow' / 'skills'
+    if not skills_path.exists():
+        skills_path = project_path / 'skills'
+
+    matched_skills = []
+    if skills_path.exists() and manager.state.next_action:
+        reg = SkillRegistry(skills_path)
+        reg.scan()
+        next_action_lower = manager.state.next_action.lower()
+        for skill in reg.skills:
+            for trigger in skill.triggers:
+                if trigger.lower() in next_action_lower:
+                    matched_skills.append(skill)
+                    break
+
+    lingmaflow_dir = project_path / '.lingmaflow'
+    lingmaflow_dir.mkdir(exist_ok=True)
+
+    output_file = lingmaflow_dir / 'current_task.md'
+
+    content_lines = [
+        "# 當前任務\n",
+        f"## 步驟：{manager.state.current_step}\n",
+        f"## 說明：{manager.state.next_action or 'N/A'}\n",
+        "## Done Conditions\n"
+    ]
+
+    if conditions:
+        for condition in conditions:
+            content_lines.append(f"- [ ] {condition}")
+    else:
+        content_lines.append("無\n")
+
+    content_lines.append("\n## 參考 Skill\n")
+
+    if matched_skills:
+        for skill in matched_skills:
+            content_lines.append(f"### {skill.name}\n")
+            content_lines.append(f"**Triggers:** {', '.join(skill.triggers)}\n")
+            content_lines.append(f"**Priority:** {skill.priority}\n")
+            content_lines.append(f"{skill.content}\n")
+    else:
+        content_lines.append("無匹配的 skill\n")
+
+    output_file.write_text('\n'.join(content_lines), encoding='utf-8')
+    return output_file
+
+
 @cli.command('prepare')
 @click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
 def prepare(path):
@@ -339,72 +410,11 @@ def prepare(path):
     """
     try:
         project_path = Path(path).resolve()
-        task_state_file = project_path / 'TASK_STATE.md'
-        
-        if not task_state_file.exists():
-            click.echo(f"Error: TASK_STATE.md not found in {project_path}", err=True)
-            sys.exit(1)
-        
-        # Load task state
-        manager = TaskStateManager(task_state_file)
-        manager.load()
-        
-        # Get conditions
-        conditions = manager.get_conditions()
-        
-        # Match skills based on next_action
-        skills_path = project_path / 'lingmaflow' / 'skills'
-        if not skills_path.exists():
-            skills_path = project_path / 'skills'
-        
-        matched_skills = []
-        if skills_path.exists() and manager.state.next_action:
-            registry = SkillRegistry(skills_path)
-            registry.scan()
-            
-            # Try to match triggers with next_action
-            next_action_lower = manager.state.next_action.lower()
-            for skill in registry.skills:
-                for trigger in skill.triggers:
-                    if trigger.lower() in next_action_lower:
-                        matched_skills.append(skill)
-                        break
-        
-        # Create .lingmaflow directory
-        lingmaflow_dir = project_path / '.lingmaflow'
-        lingmaflow_dir.mkdir(exist_ok=True)
-        
-        # Generate current_task.md
-        output_file = lingmaflow_dir / 'current_task.md'
-        
-        content_lines = [
-            "# 當前任務\n",
-            f"## 步驟：{manager.state.current_step}\n",
-            f"## 說明：{manager.state.next_action or 'N/A'}\n",
-            "## Done Conditions\n"
-        ]
-        
-        if conditions:
-            for condition in conditions:
-                content_lines.append(f"- [ ] {condition}")
-        else:
-            content_lines.append("無\n")
-        
-        content_lines.append("\n## 參考 Skill\n")
-        
-        if matched_skills:
-            for skill in matched_skills:
-                content_lines.append(f"### {skill.name}\n")
-                content_lines.append(f"**Triggers:** {', '.join(skill.triggers)}\n")
-                content_lines.append(f"**Priority:** {skill.priority}\n")
-                content_lines.append(f"{skill.content}\n")
-        else:
-            content_lines.append("無匹配的 skill\n")
-        
-        output_file.write_text('\n'.join(content_lines), encoding='utf-8')
-        
+        output_file = _run_prepare(project_path)
         click.echo(f"✓ Generated {output_file}")
-        
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -506,6 +516,14 @@ def checkpoint(next_step, result, commit, path):
         manager.save(manager.state)
         
         click.echo(f"\n✓ Advanced to {next_step}")
+        
+        # Auto-execute prepare after successful checkpoint
+        try:
+            _run_prepare(project_path)
+            click.echo("📋 current_task.md 已自動更新")
+        except Exception as e:
+            # prepare 失敗不應中斷 checkpoint 流程
+            click.echo(f"⚠️  prepare 自動執行失敗（不影響 checkpoint）: {e}")
         
         # Handle git commit if requested
         if commit:
@@ -816,9 +834,6 @@ def init(path):
         click.echo(f"✓ Created {task_state_file}")
         
         # Create initial AGENTS.md (empty skills section)
-        from ..core.skill_registry import SkillRegistry
-        from ..core.agents_injector import AgentsInjector
-        
         registry = SkillRegistry(skills_dir)
         task_state_path = task_state_file
         injector = AgentsInjector(registry, task_state_path)
