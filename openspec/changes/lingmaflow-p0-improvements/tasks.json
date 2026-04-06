@@ -37,7 +37,9 @@
   {
     "id": "1.6",
     "description": "補充 Section 1 的測試",
-    "done": false
+    "done": true,
+    "completed_at": "2026-04-06T09:02:10.709779Z",
+    "notes": "新增 6 個測試（3個 _has_harness + 3個 generate），全部通過"
   },
   {
     "id": "2.1",
