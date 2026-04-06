@@ -19,6 +19,9 @@ LingmaFlow 提供完整的 AI Agent 工作流管理，包含：
 - ✅ **執行引擎** - 自動驗證 Done Conditions 並推進（v0.2.0+）
 - ✅ **防迷路設計** - AGENTS.md 注入執行規則
 - ✅ **OpenSpec 整合** - 與 spec-driven 開發流程無縫接軌（v0.2.1+）
+- ✅ **雙層狀態顯示** - `lingmaflow status` 同時顯示 Phase + task 進度（v0.4.0+）
+- ✅ **自動 prepare** - `checkpoint` 成功後自動更新 current_task.md（v0.4.0+）
+- ✅ **Phase 模板** - `lingmaflow init-phase` 快速初始化 Done Conditions（v0.4.0+）
 
 ### 核心優勢 Core Benefits
 
@@ -1291,7 +1294,18 @@ lingmaflow harness resume --change <change_name>
 
 ## 版本歷史 Version History
 
-### v0.3.0 (Current) - 2026-04-04
+### v0.4.0 (Current) - 2026-04-07
+
+**新增功能：**
+- ✅ `lingmaflow status` 整合兩層狀態（Phase + task 進度同時顯示）
+- ✅ `harness init` 自動寫入 `.lingmaflow/active_change`
+- ✅ `lingmaflow init-phase` 指令，從模板產生 Done Conditions
+- ✅ `harness resume` 整合 TASK_STATE.md Phase 資訊
+- ✅ `checkpoint` 成功後自動執行 `prepare`，current_task.md 始終最新
+- ✅ AGENTS.md 偵測 tasks.json 存在時自動注入 harness 強制規則
+- ✅ 209 個測試全部通過
+
+### v0.3.0 (Previous) - 2026-04-04
 
 **新增功能：**
 - ✅ Harness 系統：三層狀態架構（TASK_STATE.md + tasks.json + PROGRESS.md）
@@ -1404,7 +1418,7 @@ pytest tests/ -v
 
 ---
 
-**最後更新 Last Updated**: 2026-04-02  
-**版本 Version**: v0.2.1  
+**最後更新 Last Updated**: 2026-04-07  
+**版本 Version**: v0.4.0  
 **維護者 Maintainers**: LingmaFlow Team  
 **作者 Authors**: antsentinellab-create
