@@ -4,7 +4,7 @@
 - [x] 1.2 實作 BehaveConditionChecker.check() 方法,執行 subprocess.run(["behave", feature_path])
 - [x] 1.3 處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令
 - [x] 1.4 將 BehaveConditionChecker 註冊至 ConditionCheckerFactory,支援 "behave:" prefix 路由
-- [ ] 1.5 更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析
+- [x] 1.5 更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析
 
 ## 2. FeatureLock 保護機制實作
 
