@@ -1,31 +1,31 @@
 ## 1. BehaveConditionChecker 實作
 
-- [x] 1.1 在 lingmaflow/core/condition_checker.py 新增 BehaveConditionChecker class,支援 parse behave: prefix
-- [x] 1.2 實作 BehaveConditionChecker.check() 方法,執行 subprocess.run(["behave", feature_path])
-- [x] 1.3 處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令
-- [x] 1.4 將 BehaveConditionChecker 註冊至 ConditionCheckerFactory,支援 "behave:" prefix 路由
-- [x] 1.5 更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析
+- [X] 1.1 在 lingmaflow/core/condition_checker.py 新增 BehaveConditionChecker class,支援 parse behave: prefix
+- [X] 1.2 實作 BehaveConditionChecker.check() 方法,執行 subprocess.run(["behave", feature_path])
+- [X] 1.3 處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令
+- [X] 1.4 將 BehaveConditionChecker 註冊至 ConditionCheckerFactory,支援 "behave:" prefix 路由
+- [X] 1.5 更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析
 
 ## 2. FeatureLock 保護機制實作
 
-- [x] 2.1 建立 lingmaflow/core/feature_lock.py 模組,實作 FeatureLock class
-- [x] 2.2 實作 FeatureLock.lock(feature_path) 方法,計算 SHA256 hash 並寫入 .lingmaflow/feature_locks.json
-- [x] 2.3 實作 FeatureLock.lock_all() 方法,掃描 features/ 目錄下所有 .feature 檔案並批量鎖定
-- [x] 2.4 實作 FeatureLock.verify(feature_path) 方法,比對當前 hash 與記錄是否一致
-- [x] 2.5 處理 feature_locks.json 不存在或格式損毀的情境,提供明確錯誤訊息與修復建議
-- [x] 2.6 在 BehaveConditionChecker.check() 中,執行 behave 之前先呼叫 FeatureLock.verify()
+- [X] 2.1 建立 lingmaflow/core/feature_lock.py 模組,實作 FeatureLock class
+- [X] 2.2 實作 FeatureLock.lock(feature_path) 方法,計算 SHA256 hash 並寫入 .lingmaflow/feature_locks.json
+- [X] 2.3 實作 FeatureLock.lock_all() 方法,掃描 features/ 目錄下所有 .feature 檔案並批量鎖定
+- [X] 2.4 實作 FeatureLock.verify(feature_path) 方法,比對當前 hash 與記錄是否一致
+- [X] 2.5 處理 feature_locks.json 不存在或格式損毀的情境,提供明確錯誤訊息與修復建議
+- [X] 2.6 在 BehaveConditionChecker.check() 中,執行 behave 之前先呼叫 FeatureLock.verify()
 
 ## 3. CLI 指令擴充
 
-- [x] 3.1 在 lingmaflow/cli/commands.py 新增 feature-lock 指令,支援單一檔案與 --all 參數
-- [x] 3.2 在 lingmaflow/cli/commands.py 新增 feature-verify 指令,檢查單一檔案 hash 一致性
-- [x] 3.3 為 feature-lock 指令加入成功/失敗訊息輸出,顯示 locked file count 或 hash 值
-- [x] 3.4 為 feature-verify 指令加入通過/失敗訊息輸出,顯示 expected vs actual hash
+- [X] 3.1 在 lingmaflow/cli/commands.py 新增 feature-lock 指令,支援單一檔案與 --all 參數
+- [X] 3.2 在 lingmaflow/cli/commands.py 新增 feature-verify 指令,檢查單一檔案 hash 一致性
+- [X] 3.3 為 feature-lock 指令加入成功/失敗訊息輸出,顯示 locked file count 或 hash 值
+- [X] 3.4 為 feature-verify 指令加入通過/失敗訊息輸出,顯示 expected vs actual hash
 
 ## 4. AGENTS.md 模板更新
 
-- [x] 4.1 在 lingmaflow/core/agents_injector.py 的 generate() 方法中加入 features/ 目錄偵測邏輯
-- [ ] 4.2 實作 inject_bdd_rules() 輔助函式,產生 BDD 驗收規則區塊內容
+- [X] 4.1 在 lingmaflow/core/agents_injector.py 的 generate() 方法中加入 features/ 目錄偵測邏輯
+- [X] 4.2 實作 inject_bdd_rules() 輔助函式,產生 BDD 驗收規則區塊內容
 - [ ] 4.3 確保 BDD 規則區塊插入於 Done Condition 規則之後、錯誤處置之前
 - [ ] 4.4 實作冪等性檢查：若 AGENTS.md 已存在 "## BDD 驗收規則" 則跳過注入
 - [ ] 4.5 撰寫單元測試驗證 features/ 目錄存在與不存在時的注入行為

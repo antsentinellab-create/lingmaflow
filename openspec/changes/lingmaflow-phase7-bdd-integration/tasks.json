@@ -130,10 +130,10 @@
   {
     "id": "4.2",
     "description": "實作 inject_bdd_rules() 輔助函式,產生 BDD 驗收規則區塊內容",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:48:38.016194Z",
+    "notes": "使用 BDD_RULES 常數儲存規則區塊內容,包含禁止行為與 behave 執行時機,與 HARNESS_RULES 設計模式一致"
   },
   {
     "id": "4.3",
