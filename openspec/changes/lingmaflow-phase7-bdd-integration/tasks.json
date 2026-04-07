@@ -122,10 +122,10 @@
   {
     "id": "4.1",
     "description": "在 lingmaflow/core/agents_injector.py 的 generate() 方法中加入 features/ 目錄偵測邏輯",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:46:10.134493Z",
+    "notes": "在 agents_injector.py 新增 _has_features() 方法偵測 features/ 目錄,generate() 中偵測到時自動注入 BDD_RULES 常數區塊"
   },
   {
     "id": "4.2",

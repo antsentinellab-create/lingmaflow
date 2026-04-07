@@ -24,7 +24,7 @@
 
 ## 4. AGENTS.md 模板更新
 
-- [ ] 4.1 在 lingmaflow/core/agents_injector.py 的 generate() 方法中加入 features/ 目錄偵測邏輯
+- [x] 4.1 在 lingmaflow/core/agents_injector.py 的 generate() 方法中加入 features/ 目錄偵測邏輯
 - [ ] 4.2 實作 inject_bdd_rules() 輔助函式,產生 BDD 驗收規則區塊內容
 - [ ] 4.3 確保 BDD 規則區塊插入於 Done Condition 規則之後、錯誤處置之前
 - [ ] 4.4 實作冪等性檢查：若 AGENTS.md 已存在 "## BDD 驗收規則" 則跳過注入
