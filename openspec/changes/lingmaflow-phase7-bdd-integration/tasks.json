@@ -106,10 +106,10 @@
   {
     "id": "3.3",
     "description": "為 feature-lock 指令加入成功/失敗訊息輸出,顯示 locked file count 或 hash 值",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:40:44.941365Z",
+    "notes": "feature-lock 指令已實作完整訊息輸出,單一檔案顯示 hash (截斷20字元),批量模式顯示 locked count,失敗時顯示明確錯誤"
   },
   {
     "id": "3.4",

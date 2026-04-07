@@ -19,7 +19,7 @@
 
 - [x] 3.1 在 lingmaflow/cli/commands.py 新增 feature-lock 指令,支援單一檔案與 --all 參數
 - [x] 3.2 在 lingmaflow/cli/commands.py 新增 feature-verify 指令,檢查單一檔案 hash 一致性
-- [ ] 3.3 為 feature-lock 指令加入成功/失敗訊息輸出,顯示 locked file count 或 hash 值
+- [x] 3.3 為 feature-lock 指令加入成功/失敗訊息輸出,顯示 locked file count 或 hash 值
 - [ ] 3.4 為 feature-verify 指令加入通過/失敗訊息輸出,顯示 expected vs actual hash
 
 ## 4. AGENTS.md 模板更新
