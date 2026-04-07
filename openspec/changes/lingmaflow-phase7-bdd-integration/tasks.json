@@ -10,10 +10,10 @@
   {
     "id": "1.2",
     "description": "實作 BehaveConditionChecker.check() 方法,執行 subprocess.run([\"behave\", feature_path])",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T05:54:17.723164Z",
+    "notes": "check_behave() 方法已實作 subprocess.run(['behave', feature_path]),根據 exit code 判斷條件達成,保留 behave 原生輸出格式"
   },
   {
     "id": "1.3",
