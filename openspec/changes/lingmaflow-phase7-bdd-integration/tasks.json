@@ -68,8 +68,8 @@
     "description": "實作 FeatureLock.verify(feature_path) 方法,比對當前 hash 與記錄是否一致",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:25:39.477098Z",
-    "notes": "verify() 方法已實作,比對當前 hash 與預期 hash,不一致時拋出 FeatureLockError 包含 expected/actual hash 與修復指令"
+    "completed_at": "2026-04-07T06:26:39.236162Z",
+    "notes": "verify() 在 2.1 已實作，hash 不一致拋 FeatureLockError 含 expected/actual 與修復指令"
   },
   {
     "id": "2.5",
