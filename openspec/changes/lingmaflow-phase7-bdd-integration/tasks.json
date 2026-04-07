@@ -146,10 +146,10 @@
   {
     "id": "4.4",
     "description": "實作冪等性檢查：若 AGENTS.md 已存在 \"## BDD 驗收規則\" 則跳過注入",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:53:49.487618Z",
+    "notes": "在 inject() 方法加入冪等性檢查,若 AGENTS.md 已存在 '## BDD 驗收規則' 則跳過注入並顯示警告訊息"
   },
   {
     "id": "4.5",
