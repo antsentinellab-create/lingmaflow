@@ -32,7 +32,7 @@
 
 ## 5. 單元測試撰寫
 
-- [ ] 5.1 建立 tests/test_behave_condition.py,測試 behave: condition 解析邏輯
+- [X] 5.1 建立 tests/test_behave_condition.py,測試 behave: condition 解析邏輯
 - [ ] 5.2 撰寫 scenario: behave 全綠時條件達成的測試案例（使用 mock subprocess）
 - [ ] 5.3 撰寫 scenario: behave 失敗時條件未達成的測試案例
 - [ ] 5.4 撰寫 scenario: behave 命令不存在時的錯誤處理測試案例
