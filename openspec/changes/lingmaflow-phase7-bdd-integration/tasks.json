@@ -100,8 +100,8 @@
     "description": "在 lingmaflow/cli/commands.py 新增 feature-verify 指令,檢查單一檔案 hash 一致性",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:38:18.638158Z",
-    "notes": "feature-verify 指令已實作,接受 feature_path 參數,呼叫 FeatureLock.verify(),成功顯示 verified,失敗顯示 verification failed 與 hash 差異"
+    "completed_at": "2026-04-07T06:39:13.285530Z",
+    "notes": "feature-verify 指令，驗證成功顯示 verified，失敗顯示 hash 差異，exit code 1"
   },
   {
     "id": "3.3",
