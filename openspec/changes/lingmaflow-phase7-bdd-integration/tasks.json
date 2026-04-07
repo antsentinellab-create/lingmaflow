@@ -58,10 +58,10 @@
   {
     "id": "2.3",
     "description": "實作 FeatureLock.lock_all() 方法,掃描 features/ 目錄下所有 .feature 檔案並批量鎖定",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:23:06.228465Z",
+    "notes": "lock_all() 方法已實作,使用 glob 遞迴搜尋 features/ 下所有 .feature 檔案,批量呼叫 lock() 並回傳成功數量,單一失敗不影響其他檔案"
   },
   {
     "id": "2.4",

@@ -10,7 +10,7 @@
 
 - [x] 2.1 建立 lingmaflow/core/feature_lock.py 模組,實作 FeatureLock class
 - [x] 2.2 實作 FeatureLock.lock(feature_path) 方法,計算 SHA256 hash 並寫入 .lingmaflow/feature_locks.json
-- [ ] 2.3 實作 FeatureLock.lock_all() 方法,掃描 features/ 目錄下所有 .feature 檔案並批量鎖定
+- [x] 2.3 實作 FeatureLock.lock_all() 方法,掃描 features/ 目錄下所有 .feature 檔案並批量鎖定
 - [ ] 2.4 實作 FeatureLock.verify(feature_path) 方法,比對當前 hash 與記錄是否一致
 - [ ] 2.5 處理 feature_locks.json 不存在或格式損毀的情境,提供明確錯誤訊息與修復建議
 - [ ] 2.6 在 BehaveConditionChecker.check() 中,執行 behave 之前先呼叫 FeatureLock.verify()
