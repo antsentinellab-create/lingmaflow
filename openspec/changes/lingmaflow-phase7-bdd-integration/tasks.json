@@ -52,8 +52,8 @@
     "description": "實作 FeatureLock.lock(feature_path) 方法,計算 SHA256 hash 並寫入 .lingmaflow/feature_locks.json",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:20:49.776089Z",
-    "notes": "lock() 方法已實作,檢查檔案存在性後計算 SHA256 hash,儲存至 locks dict 並寫入 feature_locks.json"
+    "completed_at": "2026-04-07T06:21:29.362284Z",
+    "notes": "fail-fast 原則，檔案不存在立即拋出 FileNotFoundError，回傳 hash 值"
   },
   {
     "id": "2.3",
