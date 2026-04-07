@@ -26,10 +26,10 @@
   {
     "id": "1.4",
     "description": "將 BehaveConditionChecker 註冊至 ConditionCheckerFactory,支援 \"behave:\" prefix 路由",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T05:59:03.538919Z",
+    "notes": "新增 ConditionCheckerFactory class,提供 create() 與 check() 靜態方法,支援 behave: prefix 自動路由至 check_behave() 方法"
   },
   {
     "id": "1.5",
