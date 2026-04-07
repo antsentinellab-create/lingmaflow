@@ -90,10 +90,10 @@
   {
     "id": "3.1",
     "description": "在 lingmaflow/cli/commands.py 新增 feature-lock 指令,支援單一檔案與 --all 參數",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:36:12.586780Z",
+    "notes": "在 lingmaflow.py 新增 feature-lock 指令,支援單一檔案路徑參數與 --all flag,呼叫 FeatureLock.lock() 或 lock_all(),提供明確錯誤訊息"
   },
   {
     "id": "3.2",
