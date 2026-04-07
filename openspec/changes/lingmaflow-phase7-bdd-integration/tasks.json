@@ -36,8 +36,8 @@
     "description": "更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:06:19.217085Z",
-    "notes": "更新 get_conditions() docstring 明確說明支援 behave: prefix,現有實作已能正確解析所有 condition types 無需修改邏輯"
+    "completed_at": "2026-04-07T06:07:17.048907Z",
+    "notes": "最小修改原則，task_state.py 現有架構已支援 behave: prefix，只補 docstring"
   },
   {
     "id": "2.1",
