@@ -42,10 +42,10 @@
   {
     "id": "2.1",
     "description": "建立 lingmaflow/core/feature_lock.py 模組,實作 FeatureLock class",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:09:46.257945Z",
+    "notes": "建立 feature_lock.py 模組,實作 FeatureLock class 包含 lock()、lock_all()、verify() 方法,使用 SHA256 hash 保護 feature files"
   },
   {
     "id": "2.2",
