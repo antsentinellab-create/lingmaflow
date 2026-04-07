@@ -172,8 +172,8 @@
     "description": "撰寫 scenario: behave 全綠時條件達成的測試案例（使用 mock subprocess）",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T07:18:41.224698Z",
-    "notes": "修改 test_behave_all_scenarios_pass 使用真實 feature file,建立 tests/fixtures/test_passing.feature 與 steps/,移除 mock 改為真實 behave 執行"
+    "completed_at": "2026-04-07T07:21:37.098043Z",
+    "notes": "真實執行 behave，建立 tests/fixtures/ 含 feature file 和 steps，移除 mock"
   },
   {
     "id": "5.3",
