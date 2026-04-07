@@ -2,7 +2,7 @@
 
 - [x] 1.1 在 lingmaflow/core/condition_checker.py 新增 BehaveConditionChecker class,支援 parse behave: prefix
 - [x] 1.2 實作 BehaveConditionChecker.check() 方法,執行 subprocess.run(["behave", feature_path])
-- [ ] 1.3 處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令
+- [x] 1.3 處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令
 - [ ] 1.4 將 BehaveConditionChecker 註冊至 ConditionCheckerFactory,支援 "behave:" prefix 路由
 - [ ] 1.5 更新 lingmaflow/core/task_state.py 的 _parse_done_conditions() 支援 behave: prefix 解析
 
