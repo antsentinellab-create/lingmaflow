@@ -138,10 +138,10 @@
   {
     "id": "4.3",
     "description": "確保 BDD 規則區塊插入於 Done Condition 規則之後、錯誤處置之前",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:51:56.138217Z",
+    "notes": "調整 generate() 方法,BDD rules 插入於 done_condition_section 之後、error_handling_section 之前,符合 spec 要求的區塊順序"
   },
   {
     "id": "4.4",
