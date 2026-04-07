@@ -84,8 +84,8 @@
     "description": "在 BehaveConditionChecker.check() 中,執行 behave 之前先呼叫 FeatureLock.verify()",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:31:54.649996Z",
-    "notes": "在 check_behave() 開頭加入 FeatureLock.verify() 呼叫,hash 驗證失敗時立即回傳 ConditionResult 不執行 behave,符合 fail-fast 原則"
+    "completed_at": "2026-04-07T06:33:20.911169Z",
+    "notes": "check_behave() 執行前先呼叫 FeatureLock.verify()，hash 驗證失敗立即回傳 False，fail-fast 原則"
   },
   {
     "id": "3.1",
