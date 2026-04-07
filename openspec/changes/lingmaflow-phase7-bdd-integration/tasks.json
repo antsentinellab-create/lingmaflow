@@ -180,8 +180,8 @@
     "description": "撰寫 scenario: behave 失敗時條件未達成的測試案例",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T07:23:26.056637Z",
-    "notes": "修改 test_behave_scenario_fails 使用真實 failing feature file,建立 tests/fixtures/test_failing.feature 與對應 steps,移除 mock 改為真實 behave 執行驗證失敗情境"
+    "completed_at": "2026-04-07T10:10:02.070425Z",
+    "notes": "真實執行 behave，test_failing.feature 用 assert False 確保失敗，驗證 passed=False 和錯誤訊息"
   },
   {
     "id": "5.4",
