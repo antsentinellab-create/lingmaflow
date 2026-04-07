@@ -116,8 +116,8 @@
     "description": "為 feature-verify 指令加入通過/失敗訊息輸出,顯示 expected vs actual hash",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T06:43:14.308724Z",
-    "notes": "feature-verify 指令已實作完整訊息,通過顯示 verified,失敗顯示 verification failed 並輸出 FeatureLockError 包含 expected/actual hash"
+    "completed_at": "2026-04-07T06:44:19.072678Z",
+    "notes": "str(e) 直接傳遞 FeatureLockError 完整內容，含 expected/actual hash 與修復指令"
   },
   {
     "id": "4.1",
