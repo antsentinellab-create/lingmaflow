@@ -20,8 +20,8 @@
     "description": "處理 behave 命令不存在的異常,回傳明確錯誤訊息包含安裝指令",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T05:56:39.444622Z",
-    "notes": "FileNotFoundError 處理已實作,回傳明確錯誤訊息 'behave command not found. Install with: pip install behave',符合 spec 要求"
+    "completed_at": "2026-04-07T05:57:06.504328Z",
+    "notes": "FileNotFoundError 捕捉，回傳含安裝指令的錯誤訊息"
   },
   {
     "id": "1.4",
