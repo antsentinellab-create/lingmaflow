@@ -154,10 +154,10 @@
   {
     "id": "4.5",
     "description": "撰寫單元測試驗證 features/ 目錄存在與不存在時的注入行為",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T07:01:45.869446Z",
+    "notes": "新增 TestBddRulesInjection 測試類別,包含 5 個測試案例驗證 features/ 目錄偵測、BDD rules 注入與否、插入位置、_has_features() 邏輯"
   },
   {
     "id": "5.1",
