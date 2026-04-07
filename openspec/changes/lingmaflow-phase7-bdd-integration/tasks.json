@@ -74,10 +74,10 @@
   {
     "id": "2.5",
     "description": "處理 feature_locks.json 不存在或格式損毀的情境,提供明確錯誤訊息與修復建議",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-07T06:28:06.343743Z",
+    "notes": "_load_locks() 已實作 JSON 損毀處理,捕捉 JSONDecodeError 並拋出 FeatureLockError 包含修復建議,檔案不存在時初始化空 dict"
   },
   {
     "id": "2.6",
