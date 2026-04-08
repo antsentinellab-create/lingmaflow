@@ -41,16 +41,20 @@ class PrecisionLineCodeSplitter(CodeSplitter):
             current_pos = 0
             
             for chunk_text in raw_chunks:
-                # Task 3.3 - 3.5: Char Offset Tracking
-                # Use current_pos to avoid matching identical boilerplate at wrong locations
-                start_pos = content.find(chunk_text, current_pos)
+                # Task 3.3 - 3.5: Char Offset Tracking with Strip-Matching Resilience
+                # LlamaIndex may trim whitespace, so we strip for matching but track original offset
+                stripped_chunk = chunk_text.strip()
+                if not stripped_chunk:
+                    continue
+                    
+                start_pos = content.find(stripped_chunk, current_pos)
                 
                 if start_pos == -1:
-                    # If exact match fails (e.g., due to whitespace trimming by splitter),
-                    # we skip this chunk to maintain 100% accuracy guarantee
+                    # Fallback: try to find the chunk with some tolerance or skip to maintain accuracy
+                    # For now, we skip to ensure 100% precision (better to miss than to misalign)
                     continue
                 
-                # Calculate line numbers based on normalized content
+                # Calculate line numbers based on the START of the matched stripped content
                 start_line = content[:start_pos].count('\n') + 1
                 end_line = start_line + chunk_text.count('\n')
                 
@@ -66,7 +70,7 @@ class PrecisionLineCodeSplitter(CodeSplitter):
                 )
                 nodes.append(node)
                 
-                # Move pointer forward to handle next occurrence of identical code
-                current_pos = start_pos + len(chunk_text)
+                # Move pointer forward past the matched content
+                current_pos = start_pos + len(stripped_chunk)
         
         return nodes
