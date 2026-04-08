@@ -53,7 +53,7 @@
 ## 7. 整合測試與文件
 
 - [X] 7.1 建立測試用的 features/ 目錄與簡易 feature file：features/test_passing.feature
-- [ ] 7.2 執行 `lingmaflow feature-lock features/test_passing.feature` 驗證 hash 記錄正確
+- [X] 7.2 執行 `lingmaflow feature-lock features/test_passing.feature` 驗證 hash 記錄正確
 - [ ] 7.3 執行 `lingmaflow verify` 驗證 behave: condition 被正確識別與執行
 - [ ] 7.4 修改 test_passing.feature 內容,再次 verify 驗證 hash 不一致錯誤被觸發
 - [ ] 7.5 執行 `lingmaflow agents generate` 驗證 BDD 規則區塊被正確注入 AGENTS.md
