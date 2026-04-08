@@ -42,16 +42,16 @@
 
 ## 5. 增強查詢 - 混合檢索含代碼水合
 
-- [ ] 5.1 修改 `.lingma/skills/repo-indexer/scripts/enhanced_query.py` 以新增 `--with-graph` CLI 參數
-- [ ] 5.2 新增 `--max-in-degree` 參數（預設值：10）用於可配置的度數過濾
-- [ ] 5.3 新增 `--repo-root` 參數（預設值："."）用於動態路徑解析
-- [ ] 5.4 當啟用 --with-graph 時初始化 GraphManager
-- [ ] 5.5 實作階段 1：向量搜尋（重用現有的 retriever 邏輯）
-- [ ] 5.6 實作階段 2：從結果中提取 vector_ids 並查詢對應的 AST 節點 ID
-- [ ] 5.7 實作階段 3：呼叫 `graph_manager.get_filtered_neighbors()` 進行拓撲擴散
-- [ ] 5.8 實作 `_hydrate_code(node_id)` 方法從檔案系統讀取實際原始碼使用相對路徑 + repo_root
-- [ ] 5.9 格式化輸出以包含 `vector_results` 和 `graph_context` 含水合的代碼片段
-- [ ] 5.10 優雅處理遺失的 vector_id：降級至純向量模式並顯示警告訊息
+- [x] 5.1 修改 `.lingma/skills/repo-indexer/scripts/enhanced_query.py` 以新增 `--with-graph` CLI 參數
+- [x] 5.2 新增 `--max-in-degree` 參數（預設值：10）用於可配置的度數過濾
+- [x] 5.3 新增 `--repo-root` 參數（預設值："."）用於動態路徑解析
+- [x] 5.4 當啟用 --with-graph 時初始化 GraphManager
+- [x] 5.5 實作階段 1：向量搜尋（重用現有的 retriever 邏輯）
+- [x] 5.6 實作階段 2：從結果中提取 vector_ids 並查詢對應的 AST 節點 ID
+- [x] 5.7 實作階段 3：呼叫 `graph_manager.get_filtered_neighbors()` 進行拓撲擴散
+- [x] 5.8 實作 `_hydrate_code(node_id)` 方法從檔案系統讀取實際原始碼使用相對路徑 + repo_root
+- [x] 5.9 格式化輸出以包含 `vector_results` 和 `graph_context` 含水合的代碼片段
+- [x] 5.10 優雅處理遺失的 vector_id：降級至純向量模式並顯示警告訊息
 
 ## 6. 測試基礎設施 - 圖譜完整性驗證
 
