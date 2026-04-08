@@ -314,10 +314,10 @@
   {
     "id": "7.6",
     "description": "更新 README.md 或 docs/,說明 BDD 整合功能與使用方式",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:22:08.462373Z",
+    "notes": "在 README.md 新增 BDD Integration 區塊 (70 行),包含 behave: 用法、feature-lock/verify 指令說明、AGENTS.md 自動注入說明,並連結至 bdd-integration.md"
   },
   {
     "id": "7.7",

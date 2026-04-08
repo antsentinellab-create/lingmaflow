@@ -57,7 +57,7 @@
 - [X] 7.3 執行 `lingmaflow verify` 驗證 behave: condition 被正確識別與執行
 - [X] 7.4 修改 test_passing.feature 內容,再次 verify 驗證 hash 不一致錯誤被觸發
 - [X] 7.5 執行 `lingmaflow agents generate` 驗證 BDD 規則區塊被正確注入 AGENTS.md
-- [ ] 7.6 更新 README.md 或 docs/,說明 BDD 整合功能與使用方式
+- [X] 7.6 更新 README.md 或 docs/,說明 BDD 整合功能與使用方式
 - [ ] 7.7 文件化 ai-factory 的 6 個 feature files 作為參考案例
 
 ## 8. ai-factory 實戰準備（P0）
