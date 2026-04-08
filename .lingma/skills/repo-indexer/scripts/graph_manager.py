@@ -61,8 +61,9 @@ class SafeFileLock:
             stat = self.lock_path.stat()
             if time.time() - stat.st_mtime > self.timeout:
                 return True
-        except:
-            pass
+        except OSError as e:
+            # Log permission or filesystem errors instead of silently ignoring
+            print(f"⚠️  [LOCK_CHECK_ERROR] Failed to check lock status: {e}")
         return False
 
     def _break_stale_lock(self):
