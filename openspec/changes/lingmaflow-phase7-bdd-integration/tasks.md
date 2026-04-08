@@ -62,7 +62,7 @@
 
 ## 8. ai-factory 實戰準備（P0）
 
-- [ ] 8.1 解壓縮 bdd_features_all.tar.gz 到 ai-factory/features/ 目錄
+- [X] 8.1 解壓縮 bdd_features_all.tar.gz 到 ai-factory/features/ 目錄 (已確認 6 個 feature files 與 3 個 steps files 就位)
 - [ ] 8.2 在 ai-factory 環境中安裝 behave: pip install behave
 - [ ] 8.3 在 ai-factory 每個 change 的 Done Condition 中加入對應的 behave: instruction
 - [ ] 8.4 執行 `lingmaflow feature-lock --all` 鎖定 ai-factory 的所有 feature files

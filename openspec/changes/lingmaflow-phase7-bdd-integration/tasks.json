@@ -330,10 +330,10 @@
   {
     "id": "8.1",
     "description": "解壓縮 bdd_features_all.tar.gz 到 ai-factory/features/ 目錄",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:40:35.860613Z",
+    "notes": "確認 AI-Factory/features/ 目錄結構: 6個 feature files (fix_random_seed, protocol_action_routing, remove_dead_orchestrator, router_side_effect_free, storage_write_lock, unify_max_retry) 共180行, 3個 steps files (phase1_steps, protocol_action_steps, storage_lock_steps)"
   },
   {
     "id": "8.2",
