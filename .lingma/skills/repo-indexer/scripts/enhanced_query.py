@@ -106,9 +106,19 @@ class EnhancedCodebaseQuery:
         index = self._load_index()
         graph_mgr = self._load_graph()
         
-        # Phase 1: Vector Search
-        retriever = index.as_retriever(similarity_top_k=top_k)
-        vector_nodes = retriever.retrieve(question)
+        # Phase 1: Vector Search with Noise Filtering
+        # Increase initial retrieval to ensure enough seeds after filtering
+        retriever = index.as_retriever(similarity_top_k=top_k * 4)
+        raw_nodes = retriever.retrieve(question)
+        
+        # Filter out test files and other noise
+        filtered_nodes = [
+            node for node in raw_nodes 
+            if "tests/" not in node.metadata.get("file_path", "")
+        ]
+        
+        # Take the top_k results from the filtered list
+        vector_nodes = filtered_nodes[:top_k]
         
         vector_results = []
         expanded_node_ids: Set[str] = set()
