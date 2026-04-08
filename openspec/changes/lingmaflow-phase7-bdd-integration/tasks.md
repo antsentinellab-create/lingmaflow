@@ -45,14 +45,14 @@
 ## 6. 文件與範例
 
 - [X] 6.1 建立 lingmaflow/docs/bdd-integration.md,包含 behave: 用法、命名慣例、proposal 範例、不修改 template 原因說明
-- [ ] 6.2 在 Done Condition 區塊加入 behave: 位置提示（位於 file:/pytest: 之前）
-- [ ] 6.3 在 design.md 或 proposal.md 模板中加入 feature file 命名慣例說明區塊
-- [ ] 6.4 提供實際範例：ai-factory-fix-random-seed → fix_random_seed.feature
-- [ ] 6.5 明確標示 behave: condition 為選擇性（僅在有 feature file 時使用）
+- [~] 6.2 在 Done Condition 區塊加入 behave: 位置提示（位於 file:/pytest: 之前）— 已文件化於 bdd-integration.md
+- [~] 6.3 在 design.md 或 proposal.md 模板中加入 feature file 命名慣例說明區塊 — 已文件化於 bdd-integration.md
+- [~] 6.4 提供實際範例：ai-factory-fix-random-seed → fix_random_seed.feature — 已在 bdd-integration.md 提供 AI Factory 範例
+- [~] 6.5 明確標示 behave: condition 為選擇性（僅在有 feature file 時使用）— 已在 bdd-integration.md 說明
 
 ## 7. 整合測試與文件
 
-- [ ] 7.1 建立測試用的 features/ 目錄與簡易 feature file (features/test_passing.feature)
+- [X] 7.1 建立測試用的 features/ 目錄與簡易 feature file：features/test_passing.feature
 - [ ] 7.2 執行 `lingmaflow feature-lock features/test_passing.feature` 驗證 hash 記錄正確
 - [ ] 7.3 執行 `lingmaflow verify` 驗證 behave: condition 被正確識別與執行
 - [ ] 7.4 修改 test_passing.feature 內容,再次 verify 驗證 hash 不一致錯誤被觸發

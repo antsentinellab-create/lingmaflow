@@ -274,10 +274,10 @@
   {
     "id": "7.1",
     "description": "建立測試用的 features/ 目錄與簡易 feature file (features/test_passing.feature)",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:02:56.150163Z",
+    "notes": "建立 features/ 目錄與 test_passing.feature,包含 1 個 scenario 與 3 個 steps,behave 執行全綠 (1 feature, 1 scenario, 3 steps passed)"
   },
   {
     "id": "7.2",
