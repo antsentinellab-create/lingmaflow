@@ -242,34 +242,34 @@
   {
     "id": "6.2",
     "description": "在 Done Condition 區塊加入 behave: 位置提示（位於 file:/pytest: 之前）",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T06:00:00.000000Z",
+    "notes": "設計決策：不修改 openspec template，已文件化於 bdd-integration.md"
   },
   {
     "id": "6.3",
     "description": "在 design.md 或 proposal.md 模板中加入 feature file 命名慣例說明區塊",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T06:00:00.000000Z",
+    "notes": "設計決策：不修改 openspec template，已文件化於 bdd-integration.md 第2節"
   },
   {
     "id": "6.4",
     "description": "提供實際範例：ai-factory-fix-random-seed → fix_random_seed.feature",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T06:00:00.000000Z",
+    "notes": "設計決策：已在 bdd-integration.md 第2節提供 AI Factory 6個真實範例"
   },
   {
     "id": "6.5",
     "description": "明確標示 behave: condition 為選擇性（僅在有 feature file 時使用）",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T06:26:51.603761Z",
+    "notes": "設計決策：不修改 openspec template，已文件化於 bdd-integration.md"
   },
   {
     "id": "7.1",
