@@ -62,7 +62,11 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
         try:
             # Convert to relative path for consistency
             rel_path = str(py_file.relative_to(repo_root))
-            if not analyzer.parse_file_to_graph(str(py_file), graph_manager, file_path=rel_path):
+            if not analyzer.parse_file_to_graph(
+                file_path=str(py_file), 
+                graph_manager=graph_manager, 
+                rel_path=rel_path
+            ):
                 failed_files.append(rel_path)
             
             if idx % 100 == 0:
