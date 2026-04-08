@@ -14,3 +14,4 @@ build/
 .contiune/
 .lingmaflow/
 .aider*
+repo-index/codebase.db
