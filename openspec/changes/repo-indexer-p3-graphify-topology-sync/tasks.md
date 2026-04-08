@@ -31,14 +31,14 @@
 
 ## 4. 索引建構整合 - AST 優先的雙維建構
 
-- [ ] 4.1 修改 `.lingma/skills/repo-indexer/scripts/build_index.py` 以匯入 GraphManager 和 PrecisionLineCodeSplitter
-- [ ] 4.2 重構建構流程：階段 1 - 使用 CallGraphAnalyzer 解析 AST 以建立純圖譜結構
-- [ ] 4.3 階段 2 - 使用 PrecisionLineCodeSplitter 取代標準 CodeSplitter 以獲得精確行號
-- [ ] 4.4 階段 3 - Chroma 儲存後，對每個 chunk 呼叫 `graph_manager.link_vector_to_node()` 使用行號交集
-- [ ] 4.5 在儲存至圖譜節點前將所有檔案路徑轉換為相對路徑（使用 `Path.relative_to(repo_root)`）
-- [ ] 4.6 新增 RSS 記憶體監控日誌鉤子：每處理 100 個檔案記錄一次 `psutil.Process.memory_info().rss`（單位：MB），作為未來是否切換至 ijson 的科學依據
-- [ ] 4.7 在索引結束時呼叫 `graph_manager.save()` 含原子寫入保護
-- [ ] 4.8 驗證 topology.json 存在且在建構完成後為有效的 JSON
+- [x] 4.1 修改 `.lingma/skills/repo-indexer/scripts/build_index.py` 以匯入 GraphManager 和 PrecisionLineCodeSplitter
+- [x] 4.2 重構建構流程：階段 1 - 使用 CallGraphAnalyzer 解析 AST 以建立純圖譜結構
+- [x] 4.3 階段 2 - 使用 PrecisionLineCodeSplitter 取代標準 CodeSplitter 以獲得精確行號
+- [x] 4.4 階段 3 - Chroma 儲存後，對每個 chunk 呼叫 `graph_manager.link_vector_to_node()` 使用行號交集
+- [x] 4.5 在儲存至圖譜節點前將所有檔案路徑轉換為相對路徑（使用 `Path.relative_to(repo_root)`）
+- [x] 4.6 新增 RSS 記憶體監控日誌鉤子：每處理 100 個檔案記錄一次 `psutil.Process.memory_info().rss`（單位：MB），作為未來是否切換至 ijson 的科學依據
+- [x] 4.7 在索引結束時呼叫 `graph_manager.save()` 含原子寫入保護
+- [x] 4.8 驗證 topology.json 存在且在建構完成後為有效的 JSON
 
 ## 5. 增強查詢 - 混合檢索含代碼水合
 
