@@ -74,7 +74,7 @@ class EnhancedCodebaseQuery:
         
         # Defensive check: Ensure file_path exists
         if not rel_path:
-            return f"# [HYDRATION_ERROR] Node '{node_id}' has no file_path attribute."
+            return None  # Silently skip nodes without file paths
         
         # Task 5.8: Path resolution using repo_root
         abs_path = self.repo_root / rel_path
@@ -152,7 +152,7 @@ class EnhancedCodebaseQuery:
         
         for n_id in list(expanded_node_ids)[:max_hydration]:
             code_snippet = self._hydrate_code(n_id)
-            if code_snippet:
+            if code_snippet and "tests/" not in code_snippet:
                 graph_context.append(code_snippet)
                 hydrated_count += 1
         
