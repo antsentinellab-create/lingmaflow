@@ -362,10 +362,10 @@
   {
     "id": "8.5",
     "description": "手動執行 `behave features/fix_random_seed.feature` 驗證 scenarios 可正常通過",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:55:38.286004Z",
+    "notes": "修復 step 衝突:從 storage_lock_steps.py 和 protocol_action_steps.py 移除重複的 scanning/contains steps,保留 phase1_steps.py 作為通用 steps 來源。三個 feature files 可正常執行但測試失敗 (因為 changes 尚未實作)"
   },
   {
     "id": "8.6",
