@@ -22,6 +22,7 @@ LingmaFlow 提供完整的 AI Agent 工作流管理，包含：
 - ✅ **雙層狀態顯示** - `lingmaflow status` 同時顯示 Phase + task 進度（v0.4.0+）
 - ✅ **自動 prepare** - `checkpoint` 成功後自動更新 current_task.md（v0.4.0+）
 - ✅ **Phase 模板** - `lingmaflow init-phase` 快速初始化 Done Conditions（v0.4.0+）
+- ✅ **BDD 整合** - `behave:` Done Condition 自動驗證行為正確性，防止測試造假（v0.5.0+）
 
 ### 核心優勢 Core Benefits
 
@@ -548,6 +549,76 @@ step_id         步驟 ID（必填）
 1. 執行 `verify` 檢查所有 Done Conditions
 2. 如果全部通過，自動調用 `advance` 推進到下一步
 3. 如果有未通過的條件，顯示錯誤並停止
+
+---
+
+## BDD 整合功能 BDD Integration
+
+LingmaFlow v0.5.0+ 支援 BDD (Behavior-Driven Development) 工作流，透過 `behave:` Done Condition 自動驗證行為正確性，防止 AI 測試造假。
+
+### behave: Done Condition 用法
+
+在 TASK_STATE.md 或 tasks.json 的 done conditions 中，使用 `behave:` prefix 指定需要執行的 feature file：
+
+```yaml
+done_conditions:
+  - file:src/module.py
+  - pytest:tests/test_module.py
+  - behave:features/user_login.feature  # ← BDD 驗收條件
+```
+
+當 Agent 標記此 condition 為完成時，LingmaFlow 會自動：
+1. **驗證 feature file 完整性** - 檢查 hash 是否與鎖定時一致
+2. **執行 behave 測試** - 呼叫 `behave features/<對應的 feature 檔案>`
+3. **回報結果** - ✅ 全綠則通過，❌ 失敗則保持未完成
+
+### Feature Lock 保護機制
+
+為了防止 Agent 修改或刪除 .feature 檔案來通過驗證，LingmaFlow 提供 hash-based 保護機制：
+
+#### 鎖定 Feature Files
+
+```bash
+# 鎖定單一檔案
+lingmaflow feature-lock features/user_login.feature
+
+# 鎖定所有 features/ 目錄下的檔案
+lingmaflow feature-lock --all
+```
+
+這會在 `.lingmaflow/feature_locks.json` 中記錄每個檔案的 SHA256 hash。
+
+#### 驗證 Feature Files
+
+```bash
+# 驗證單一檔案
+lingmaflow feature-verify features/user_login.feature
+
+# 輸出範例（通過）
+✅ features/user_login.feature verified
+
+# 輸出範例（失敗）
+❌ features/user_login.feature verification failed
+   ❌ features/user_login.feature has been modified!
+   Expected: sha256:abc123...
+   Got:      sha256:def456...
+   Feature files must not be modified by agent.
+   If this is intentional, run:
+     lingmaflow feature-lock features/user_login.feature
+```
+
+### AGENTS.md 自動注入 BDD 規則
+
+當專案中存在 `features/` 目錄時，執行 `lingmaflow agents generate` 會自動在 AGENTS.md 中注入 BDD 驗收規則區塊，包含：
+
+- **禁止行為** - 不得修改、刪除或跳過任何 Scenario
+- **behave 執行時機** - Done Condition 包含 behave: 時的執行方式
+- **強制要求** - behave 未全綠不得執行 checkpoint
+
+### 完整文件 Full Documentation
+
+更詳細的使用說明、命名慣例與實際範例，請參考：
+- [BDD Integration Guide](lingmaflow/docs/bdd-integration.md)
 
 ---
 
@@ -1294,7 +1365,19 @@ lingmaflow harness resume --change <change_name>
 
 ## 版本歷史 Version History
 
-### v0.4.0 (Current) - 2026-04-07
+### v0.5.0 (Current) - 2026-04-07
+
+**新增功能：**
+- ✅ BDD Integration：`behave:` Done Condition 自動驗證行為正確性
+- ✅ Feature Lock 保護機制：SHA256 hash-based 防止 feature file 被篡改
+- ✅ `lingmaflow feature-lock` 指令：鎖定單一或所有 feature files
+- ✅ `lingmaflow feature-verify` 指令：驗證 feature file 完整性
+- ✅ AGENTS.md 自動注入 BDD 規則區塊（偵測到 features/ 目錄時）
+- ✅ BehaveConditionChecker：整合 behave 執行與 hash 驗證
+- ✅ 完整文件：`lingmaflow/docs/bdd-integration.md` 與 README.md BDD 章節
+- ✅ 測試覆蓋：32 個新測試（12 behave + 20 feature_lock），總計 246 個測試全部通過
+
+### v0.4.0 (Previous) - 2026-04-07
 
 **新增功能：**
 - ✅ `lingmaflow status` 整合兩層狀態（Phase + task 進度同時顯示）
@@ -1419,6 +1502,6 @@ pytest tests/ -v
 ---
 
 **最後更新 Last Updated**: 2026-04-07  
-**版本 Version**: v0.4.0  
+**版本 Version**: v0.5.0  
 **維護者 Maintainers**: LingmaFlow Team  
 **作者 Authors**: antsentinellab-create
