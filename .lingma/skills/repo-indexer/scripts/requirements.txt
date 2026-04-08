@@ -1,0 +1,37 @@
+# Repo Indexer Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core LlamaIndex packages
+llama-index>=0.10.0
+llama-index-vector-stores-chroma>=0.1.0
+llama-index-embeddings-huggingface>=0.2.0
+
+# Code parsing dependencies (required for CodeSplitter)
+tree-sitter>=0.25.0
+tree-sitter-python>=0.25.0
+tree-sitter-language-pack>=1.4.0
+
+# Vector database
+chromadb>=0.4.22
+
+# Reranker for improved accuracy
+llama-index-postprocessor-flag-embedding-reranker>=0.5.0
+
+# Optional: For better embeddings (uncomment if needed)
+# sentence-transformers>=2.2.0
+
+# NVIDIA NIM integration for LLM inference
+nvidia-nim-client>=0.1.0
+
+# Optional: For OpenAI integration (uncomment if using OpenAI agents)
+# openai>=1.0.0
+
+# Optional: For Google Gemini integration (uncomment if using Gemini agents)
+# google-generativeai>=0.3.0
+
+# Graph management and topology analysis
+networkx>=3.0
+psutil>=5.9.0  # For memory monitoring during indexing
+
+# Optional: For Anthropic Claude integration (uncomment if using Claude agents)
+# anthropic>=0.18.0
