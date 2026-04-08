@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Migration Script: JSON Topology to SQLite.
+Migration Script: JSON Topology to SQLite Hybrid DB.
 Converts the existing NetworkX JSON graph into the new SQLite schema.
+Supports batch processing and transaction control for large datasets.
 """
 
 import os
@@ -12,7 +13,7 @@ from pathlib import Path
 
 # Add scripts directory to path
 sys.path.append(os.path.dirname(__file__))
-from database_manager import DatabaseManager
+from database_manager import DatabaseManager, serialize_float32
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MigrationScript")
@@ -20,7 +21,7 @@ logger = logging.getLogger("MigrationScript")
 def migrate_data(json_path="repo-graph/topology.json", db_path="repo-index/codebase.db"):
     """
     Migrate data from JSON topology file to SQLite database.
-    Uses transaction control to ensure atomicity.
+    Uses generator-based batching to minimize RAM usage.
     """
     json_file = Path(json_path)
     if not json_file.exists():
@@ -40,14 +41,14 @@ def migrate_data(json_path="repo-graph/topology.json", db_path="repo-index/codeb
     
     logger.info(f"📊 Found {len(nodes_data)} nodes and {len(links_data)} edges.")
 
-    # Initialize Database Manager
+    # Initialize Database Manager (with warm-up)
     db = DatabaseManager(db_path=db_path)
     
     try:
         # --- Migrate Nodes ---
-        def insert_nodes(conn):
-            node_tuples = [
-                (
+        def node_generator():
+            for n in nodes_data:
+                yield (
                     n["id"], 
                     n.get("type", "unknown"), 
                     n.get("file_path", ""), 
@@ -55,31 +56,17 @@ def migrate_data(json_path="repo-graph/topology.json", db_path="repo-index/codeb
                     n.get("end_line", 0), 
                     json.dumps({k: v for k, v in n.items() if k not in ["id", "type", "file_path", "start_line", "end_line"]})
                 )
-                for n in nodes_data
-            ]
-            conn.executemany(
-                "INSERT OR REPLACE INTO nodes VALUES (?, ?, ?, ?, ?, ?)",
-                node_tuples
-            )
-            logger.info(f"✅ Prepared {len(node_tuples)} nodes for insertion.")
 
-        logger.info("🚀 Starting node migration transaction...")
-        db.execute_in_transaction(insert_nodes)
+        logger.info("🚀 Starting node migration (Batched)...")
+        db.add_nodes_batch(node_generator(), batch_size=5000)
 
         # --- Migrate Edges ---
-        def insert_edges(conn):
-            edge_tuples = [
-                (link["source"], link["target"], link.get("relation_type", "CALLS"))
-                for link in links_data
-            ]
-            conn.executemany(
-                "INSERT OR IGNORE INTO edges VALUES (?, ?, ?)",
-                edge_tuples
-            )
-            logger.info(f"✅ Prepared {len(edge_tuples)} edges for insertion.")
+        def edge_generator():
+            for link in links_data:
+                yield (link["source"], link["target"], link.get("relation_type", "CALLS"))
 
-        logger.info("🚀 Starting edge migration transaction...")
-        db.execute_in_transaction(insert_edges)
+        logger.info("🚀 Starting edge migration (Batched)...")
+        db.add_edges_batch(edge_generator(), batch_size=10000)
 
         logger.info("✨ Migration completed successfully!")
         

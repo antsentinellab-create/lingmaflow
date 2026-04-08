@@ -24,7 +24,10 @@ except ImportError:
 logger = logging.getLogger("DatabaseManager")
 
 def serialize_float32(vector: List[float]) -> bytes:
-    """Convert a list of floats to a binary blob for sqlite-vec."""
+    """Convert a list of floats to a binary blob for sqlite-vec using official API."""
+    if sqlite_vec:
+        return sqlite_vec.serialize_float32(vector)
+    # Fallback to manual packing if sqlite_vec is not available
     return struct.pack(f'{len(vector)}f', *vector)
 
 class DatabaseManager:
@@ -193,6 +196,21 @@ class DatabaseManager:
         row = cursor.fetchone()
         return dict(row) if row else None
 
+    def get_nodes_batch(self, node_ids: List[str]) -> Dict[str, Dict]:
+        """
+        Batch fetch nodes by IDs to avoid N+1 query problem.
+        Returns a dictionary mapping node_id to node metadata.
+        """
+        if not node_ids:
+            return {}
+        
+        # Use placeholders for SQL IN clause
+        placeholders = ','.join('?' * len(node_ids))
+        query = f"SELECT * FROM nodes WHERE id IN ({placeholders})"
+        
+        cursor = self.conn.execute(query, node_ids)
+        return {row['id']: dict(row) for row in cursor.fetchall()}
+
     # --- Edge Operations ---
 
     def add_edge(self, source_id: str, target_id: str, relation_type: str):
@@ -208,19 +226,31 @@ class DatabaseManager:
             self.conn.rollback()
             raise
 
-    def add_edges_batch(self, edges: List[Tuple]):
-        """Batch insert edges."""
-        try:
-            self.conn.executemany(
-                "INSERT OR IGNORE INTO edges VALUES (?, ?, ?)",
-                edges
-            )
-            self.conn.commit()
-            logger.info(f"🔗 Batch inserted {len(edges)} edges")
-        except Exception as e:
-            logger.error(f"Failed batch edge insertion: {e}")
-            self.conn.rollback()
-            raise
+    def add_edges_batch(self, edges: Iterator[Tuple] | List[Tuple], batch_size: int = 10000):
+        """
+        Batch insert edges using a generator to minimize RAM usage.
+        
+        Args:
+            edges: An iterator or list of edge tuples (source, target, relation).
+            batch_size: Number of records per transaction (default 10000).
+        """
+        if isinstance(edges, list):
+            edges = iter(edges)
+            
+        while True:
+            batch = list(itertools.islice(edges, batch_size))
+            if not batch:
+                break
+            try:
+                with self.conn:
+                    self.conn.executemany(
+                        "INSERT OR IGNORE INTO edges VALUES (?, ?, ?)",
+                        batch
+                    )
+                logger.info(f"🔗 Committed batch of {len(batch)} edges")
+            except Exception as e:
+                logger.error(f"Failed batch edge insertion: {e}")
+                raise
 
     def get_predecessors(self, node_id: str, depth: int = 1) -> List[str]:
         """Get callers using Recursive CTE."""
@@ -365,14 +395,14 @@ class DatabaseManager:
         )
         return [dict(row) for row in cursor.fetchall()]
 
-    def hybrid_search(self, query_embedding: List[float], limit: int = 5, graph_depth: int = 2, alpha: float = 0.7) -> List[Dict]:
+    def hybrid_search(self, query_embedding: List[float] | bytes, limit: int = 5, graph_depth: int = 2, alpha: float = 0.7) -> List[Dict]:
         """
         Advanced Hybrid Search: Combines Vector Similarity with Graph Traversal.
         
         Formula: score = alpha * vector_sim + (1 - alpha) * (1 / (graph_dist + 1))
         
         Args:
-            query_embedding: The query vector.
+            query_embedding: The query vector (list of floats or pre-serialized bytes).
             limit: Number of final results to return.
             graph_depth: How many hops to traverse from vector matches.
             alpha: Weight for vector similarity (0.0 to 1.0).
@@ -382,7 +412,8 @@ class DatabaseManager:
             return []
 
         # Step 1: Vector Search to get initial candidates
-        binary_query = serialize_float32(query_embedding)
+        # Only serialize if input is a list, otherwise assume it's already serialized
+        binary_query = serialize_float32(query_embedding) if isinstance(query_embedding, list) else query_embedding
         cursor = self.conn.execute(
             "SELECT node_id, vec_distance_cosine(embedding, ?) as dist FROM vec_nodes ORDER BY dist ASC LIMIT ?",
             (binary_query, limit * 2) # Fetch more candidates for graph expansion
@@ -394,30 +425,45 @@ class DatabaseManager:
 
         # Step 2: Graph Traversal & Scoring
         final_scores = {}
+        all_neighbor_ids = []
+        neighbor_info = {} # Map ID to (seed_vec_dist, depth)
+
         for seed_node_id, vec_dist in vector_results.items():
-            # Calculate base vector score (1 - distance)
             vec_score = 1.0 - vec_dist
             
-            # Get neighbors via CTE
-            neighbors = self.get_call_chain_with_depth(seed_node_id, direction="backward", max_depth=graph_depth)
+            # Always include the seed node itself with depth 0
+            if seed_node_id not in neighbor_info:
+                neighbor_info[seed_node_id] = (vec_dist, 0)
+                all_neighbor_ids.append(seed_node_id)
             
-            for neighbor_id, depth in neighbors:
-                # Graph score: closer nodes get higher scores
-                graph_score = 1.0 / (depth + 1)
+            # Get neighbors via CTE (only if graph_depth > 0)
+            if graph_depth > 0:
+                neighbors = self.get_call_chain_with_depth(seed_node_id, direction="backward", max_depth=graph_depth)
                 
-                # Combined Score
-                combined = alpha * vec_score + (1 - alpha) * graph_score
-                
-                if neighbor_id not in final_scores or combined > final_scores[neighbor_id]['score']:
-                    # Fetch metadata only for high-scoring nodes
-                    meta = self.get_node(neighbor_id)
-                    if meta:
-                        final_scores[neighbor_id] = {
-                            'score': combined,
-                            'vector_dist': vec_dist,
-                            'graph_depth': depth,
-                            'metadata': meta
-                        }
+                for neighbor_id, depth in neighbors:
+                    if neighbor_id not in neighbor_info:
+                        neighbor_info[neighbor_id] = (vec_dist, depth)
+                        all_neighbor_ids.append(neighbor_id)
+
+        # Batch fetch metadata for all unique neighbors at once
+        nodes_meta = self.get_nodes_batch(all_neighbor_ids)
+
+        # Calculate combined scores
+        for neighbor_id, (seed_vec_dist, depth) in neighbor_info.items():
+            vec_score = 1.0 - seed_vec_dist
+            graph_score = 1.0 / (depth + 1)
+            
+            # Combined Score with alpha weighting
+            combined = alpha * vec_score + (1 - alpha) * graph_score
+            
+            meta = nodes_meta.get(neighbor_id)
+            if meta:
+                final_scores[neighbor_id] = {
+                    'score': combined,
+                    'vector_dist': seed_vec_dist,
+                    'graph_depth': depth,
+                    'metadata': meta
+                }
 
         # Sort by combined score and return top N
         sorted_results = sorted(final_scores.values(), key=lambda x: x['score'], reverse=True)[:limit]
