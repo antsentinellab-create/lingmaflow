@@ -234,10 +234,10 @@
   {
     "id": "6.1",
     "description": "找到 openspec propose 使用的 proposal.md template 檔案位置",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T04:59:32.993801Z",
+    "notes": "建立 bdd-integration.md,包含 behave: 用法說明、feature file 命名慣例 (含 ai-factory 範例)、proposal.md Done Condition 區塊範例、不修改 openspec template 原因說明"
   },
   {
     "id": "6.2",

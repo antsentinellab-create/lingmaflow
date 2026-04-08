@@ -42,9 +42,9 @@
 - [X] 5.8 撰寫 scenario: feature_locks.json 損毀時的錯誤處理測試案例
 - [X] 5.9 執行 pytest tests/ 確保所有新測試通過且無 regression
 
-## 6. openspec propose 模板更新
+## 6. 文件與範例
 
-- [ ] 6.1 找到 openspec propose 使用的 proposal.md template 檔案位置
+- [X] 6.1 建立 lingmaflow/docs/bdd-integration.md,包含 behave: 用法、命名慣例、proposal 範例、不修改 template 原因說明
 - [ ] 6.2 在 Done Condition 區塊加入 behave: 位置提示（位於 file:/pytest: 之前）
 - [ ] 6.3 在 design.md 或 proposal.md 模板中加入 feature file 命名慣例說明區塊
 - [ ] 6.4 提供實際範例：ai-factory-fix-random-seed → fix_random_seed.feature
