@@ -8,6 +8,7 @@ the SkillRegistry.
 
 from pathlib import Path
 from typing import List
+import glob
 
 from .skill_registry import SkillRegistry
 
@@ -31,6 +32,24 @@ lingmaflow harness log --change <change_name> --completed "<完成的 task IDs>"
 - 不可跳過 harness done，即使 task 很簡單
 - 不可修改 tasks.json 的 id 或 description 欄位
 - 不可刪除任何 task 條目
+"""
+
+# BDD rules to be injected when features/ directory is detected
+BDD_RULES = """
+## BDD 驗收規則（偵測到 features/ 目錄）
+
+### 禁止行為
+- 不得修改 features/ 目錄下的任何 .feature 檔案
+- 不得刪除或跳過任何 Scenario
+- 不得新增 Scenario 來取代現有的 Scenario
+- behave 未全綠不得執行 lingmaflow checkpoint
+
+### behave 執行時機
+Done Condition 包含 behave: 時，完成實作後立即執行：
+```bash
+behave features/<對應的 feature 檔案>
+```
+必須全綠才算完成此條件
 """
 
 
@@ -107,6 +126,23 @@ class AgentsInjector:
             return False
         return False
     
+    def _has_features(self, project_path: Path) -> bool:
+        """Detect if features/ directory exists and contains .feature files.
+        
+        Args:
+            project_path: Path to the project root directory
+            
+        Returns:
+            True if features/ directory exists and has at least one .feature file
+        """
+        features_dir = project_path / "features"
+        if not features_dir.exists():
+            return False
+        
+        # Check for at least one .feature file
+        feature_files = glob.glob(str(features_dir / "*.feature"))
+        return len(feature_files) > 0
+    
     def _generate_skill_list(self) -> str:
         """Generate the dynamic skill list section.
         
@@ -136,6 +172,9 @@ class AgentsInjector:
         """
         skill_list = self._generate_skill_list()
         
+        # Check for features/ directory to determine if BDD rules should be injected
+        has_bdd = project_path is not None and self._has_features(project_path)
+        
         content = f"""{self.FIXED_CONTENT['title']}
 
 {self.FIXED_CONTENT['startup_section']}
@@ -144,7 +183,13 @@ class AgentsInjector:
 
 {skill_list}
 
-{self.FIXED_CONTENT['done_condition_section']}
+{self.FIXED_CONTENT['done_condition_section']}"""
+        
+        # Insert BDD rules after Done Condition section if features/ directory is detected
+        if has_bdd:
+            content += "\n" + BDD_RULES
+        
+        content += f"""
 
 {self.FIXED_CONTENT['error_handling_section']}
 """
@@ -173,6 +218,8 @@ class AgentsInjector:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             # Generate content with optional harness detection
+            # 冪等性由 generate() 的 _has_features() 保證：
+            # features/ 存在才注入 BDD rules，不存在就不注入，不需要讀舊檔案
             content = self.generate(project_path=project_path)
             
             # Write to file with UTF-8 encoding

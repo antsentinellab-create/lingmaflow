@@ -1,6 +1,6 @@
 """Condition Checker Module - Core validation logic for execution engine.
 
-This module provides three verification types (file, pytest, func) to check
+This module provides four verification types (file, pytest, func, behave) to check
 if Done Conditions are met.
 """
 
@@ -10,6 +10,8 @@ import importlib
 import os
 import subprocess
 from dataclasses import dataclass
+
+from .feature_lock import FeatureLock, FeatureLockError
 
 
 @dataclass
@@ -34,10 +36,11 @@ class UnknownConditionTypeError(Exception):
 class ConditionChecker:
     """Checker for validating Done Conditions.
     
-    Supports three condition types:
+    Supports four condition types:
     - file:PATH - Check if file exists
     - pytest:PATH - Run pytest and check if tests pass
     - func:MODULE.CLASS - Check if module/class exists
+    - behave:PATH - Run behave on feature file and check if scenarios pass
     """
     
     def __init__(self):
@@ -161,6 +164,61 @@ class ConditionChecker:
                 message=f"Error importing module: {str(e)}"
             )
     
+    def check_behave(self, feature_path: str) -> ConditionResult:
+        """Run behave on a feature file and check if all scenarios pass.
+        
+        Args:
+            feature_path: Path to the .feature file
+            
+        Returns:
+            ConditionResult with passed=True if all scenarios pass
+        """
+        try:
+            # Verify feature file hash before running behave
+            feature_lock = FeatureLock()
+            feature_lock.verify(feature_path)
+        except FeatureLockError as e:
+            return ConditionResult(
+                passed=False,
+                condition=f"behave:{feature_path}",
+                message=str(e)
+            )
+        
+        try:
+            result = subprocess.run(
+                ['behave', feature_path],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode == 0:
+                return ConditionResult(
+                    passed=True,
+                    condition=f"behave:{feature_path}",
+                    message=f"✅ behave passed: {feature_path}"
+                )
+            else:
+                # Extract error message from stderr or stdout
+                error_output = result.stderr if result.stderr else result.stdout
+                return ConditionResult(
+                    passed=False,
+                    condition=f"behave:{feature_path}",
+                    message=f"❌ behave failed: {feature_path}\n{error_output}"
+                )
+        except subprocess.TimeoutExpired:
+            return ConditionResult(
+                passed=False,
+                condition=f"behave:{feature_path}",
+                message=f"Behave execution timed out: {feature_path}"
+            )
+        except FileNotFoundError:
+            return ConditionResult(
+                passed=False,
+                condition=f"behave:{feature_path}",
+                message=f"❌ behave command not found. Install with: pip install behave"
+            )
+    
     def parse_condition(self, condition_str: str) -> tuple[str, str]:
         """Parse a condition string into type and value.
         
@@ -183,10 +241,10 @@ class ConditionChecker:
         condition_type = condition_type.strip()
         value = value.strip()
         
-        if condition_type not in ('file', 'pytest', 'func'):
+        if condition_type not in ('file', 'pytest', 'func', 'behave'):
             raise UnknownConditionTypeError(
                 f"Unknown condition type: {condition_type}. "
-                f"Supported types: file, pytest, func"
+                f"Supported types: file, pytest, func, behave"
             )
         
         return condition_type, value
@@ -212,6 +270,8 @@ class ConditionChecker:
                     result = self.check_pytest(value)
                 elif condition_type == 'func':
                     result = self.check_func(value)
+                elif condition_type == 'behave':
+                    result = self.check_behave(value)
                 else:
                     # Should not happen due to parse_condition validation
                     result = ConditionResult(
@@ -248,3 +308,56 @@ class ConditionChecker:
         """
         results = self.check_all(conditions)
         return all(result.passed for result in results)
+
+
+class ConditionCheckerFactory:
+    """Factory for creating condition checkers based on condition type prefix.
+    
+    This factory supports automatic routing of condition strings to the appropriate
+    checker method based on the prefix (file:, pytest:, func:, behave:).
+    """
+    
+    @staticmethod
+    def create(condition_str: str) -> tuple[ConditionChecker, str, str]:
+        """Create a condition checker and parse the condition string.
+        
+        Args:
+            condition_str: Condition string like "behave:features/test.feature"
+            
+        Returns:
+            Tuple of (checker_instance, condition_type, value)
+            
+        Raises:
+            UnknownConditionTypeError: If condition type is not recognized
+        """
+        checker = ConditionChecker()
+        condition_type, value = checker.parse_condition(condition_str)
+        return checker, condition_type, value
+    
+    @staticmethod
+    def check(condition_str: str) -> ConditionResult:
+        """Check a single condition string using the appropriate checker.
+        
+        Args:
+            condition_str: Condition string like "behave:features/test.feature"
+            
+        Returns:
+            ConditionResult with the check outcome
+        """
+        checker, condition_type, value = ConditionCheckerFactory.create(condition_str)
+        
+        if condition_type == 'file':
+            return checker.check_file(value)
+        elif condition_type == 'pytest':
+            return checker.check_pytest(value)
+        elif condition_type == 'func':
+            return checker.check_func(value)
+        elif condition_type == 'behave':
+            return checker.check_behave(value)
+        else:
+            # Should not happen due to parse_condition validation
+            return ConditionResult(
+                passed=False,
+                condition=condition_str,
+                message=f"Unknown condition type: {condition_type}"
+            )

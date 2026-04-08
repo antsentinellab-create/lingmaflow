@@ -27,3 +27,7 @@ lingmaflow = "lingmaflow.cli.lingmaflow:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["lingmaflow*"]
+
+[tool.mutmut]
+paths_to_mutate = "lingmaflow/core/task_state.py"
+tests_dir = "tests/"

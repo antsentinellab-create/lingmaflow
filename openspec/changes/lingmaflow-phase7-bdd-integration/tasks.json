@@ -180,7 +180,7 @@
     "description": "撰寫 scenario: behave 失敗時條件未達成的測試案例",
     "done": true,
     "started_at": null,
-    "completed_at": "2026-04-07T10:10:02.070425Z",
+    "completed_at": "2026-04-08T04:23:54.969038Z",
     "notes": "真實執行 behave，test_failing.feature 用 assert False 確保失敗，驗證 passed=False 和錯誤訊息"
   },
   {

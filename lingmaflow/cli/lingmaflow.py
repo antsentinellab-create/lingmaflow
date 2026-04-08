@@ -15,6 +15,7 @@ from ..core.skill_registry import SkillRegistry, MalformedSkillError
 from ..core.agents_injector import AgentsInjector, InjectionError
 from ..core.condition_checker import ConditionChecker, UnknownConditionTypeError
 from ..core.harness import HarnessManager, ResumePoint
+from ..core.feature_lock import FeatureLock, FeatureLockError
 
 
 @click.group()
@@ -609,6 +610,78 @@ def verify(path):
         
         sys.exit(0 if all_passed else 1)
         
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+# ============================================================================
+# Feature Lock Commands
+# ============================================================================
+
+@cli.command('feature-lock')
+@click.argument('feature_path', required=False)
+@click.option('--all', 'lock_all', is_flag=True, help='Lock all feature files in features/ directory')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+def feature_lock(feature_path, lock_all, path):
+    """Lock feature files by recording their SHA256 hashes.
+    
+    FEATURE_PATH: Path to a specific .feature file (e.g., features/test.feature)
+    
+    Use --all to lock all .feature files in the features/ directory.
+    """
+    try:
+        project_path = Path(path).resolve()
+        
+        if not feature_path and not lock_all:
+            click.echo("Error: Please provide a FEATURE_PATH or use --all option", err=True)
+            click.echo("Usage: lingmaflow feature-lock <path> OR lingmaflow feature-lock --all", err=True)
+            sys.exit(1)
+        
+        feature_lock_manager = FeatureLock(project_path)
+        
+        if lock_all:
+            # Lock all feature files
+            count = feature_lock_manager.lock_all()
+            click.echo(f"✅ Locked {count} feature file(s)")
+        else:
+            # Lock single feature file
+            hash_value = feature_lock_manager.lock(feature_path)
+            click.echo(f"✅ Locked {feature_path}")
+            click.echo(f"   Hash: {hash_value[:20]}...")
+        
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except FeatureLockError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command('feature-verify')
+@click.argument('feature_path')
+@click.option('--path', '-p', default='.', help='Path to project directory (default: current directory)')
+def feature_verify(feature_path, path):
+    """Verify that a feature file hasn't been modified.
+    
+    FEATURE_PATH: Path to the .feature file to verify
+    """
+    try:
+        project_path = Path(path).resolve()
+        feature_lock_manager = FeatureLock(project_path)
+        
+        # Verify the feature file
+        feature_lock_manager.verify(feature_path)
+        
+        click.echo(f"✅ {feature_path} verified")
+        
+    except FeatureLockError as e:
+        click.echo(f"❌ {feature_path} verification failed")
+        click.echo(str(e), err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

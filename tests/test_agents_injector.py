@@ -603,3 +603,96 @@ class TestStartupSection:
         pos_current_task = content.index("cat .lingmaflow/current_task.md")
         pos_done_cond = content.index("done condition")
         assert pos_task_state < pos_current_task < pos_done_cond
+
+
+# ============================================================================
+# Test BDD Rules Injection (features/ directory detection)
+# ============================================================================
+
+class TestBddRulesInjection:
+    """Tests for BDD rules injection when features/ directory is detected."""
+    
+    def test_bdd_rules_injected_when_features_dir_exists(self, tmp_path):
+        """Test BDD rules are injected when features/ directory exists with .feature files."""
+        # Create features/ directory with a .feature file
+        features_dir = tmp_path / "features"
+        features_dir.mkdir()
+        feature_file = features_dir / "test.feature"
+        feature_file.write_text("Feature: Test\n  Scenario: Test scenario\n")
+        
+        # Create injector
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Generate content with project_path
+        content = injector.generate(project_path=tmp_path)
+        
+        # Verify BDD rules are present
+        assert "## BDD 驗收規則（偵測到 features/ 目錄）" in content
+        assert "### 禁止行為" in content
+        assert "不得修改 features/ 目錄下的任何 .feature 檔案" in content
+        assert "behave features/<對應的 feature 檔案>" in content
+    
+    def test_bdd_rules_not_injected_when_features_dir_missing(self, tmp_path):
+        """Test BDD rules are not injected when features/ directory doesn't exist."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Generate content without features/ directory
+        content = injector.generate(project_path=tmp_path)
+        
+        # Verify BDD rules are NOT present
+        assert "## BDD 驗收規則" not in content
+    
+    def test_bdd_rules_not_injected_when_features_dir_empty(self, tmp_path):
+        """Test BDD rules are not injected when features/ directory exists but has no .feature files."""
+        # Create empty features/ directory
+        features_dir = tmp_path / "features"
+        features_dir.mkdir()
+        
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # Generate content with empty features/ directory
+        content = injector.generate(project_path=tmp_path)
+        
+        # Verify BDD rules are NOT present
+        assert "## BDD 驗收規則" not in content
+    
+    def test_bdd_rules_position_after_done_condition(self, tmp_path):
+        """Test BDD rules are inserted after Done Condition section."""
+        # Create features/ directory with a .feature file
+        features_dir = tmp_path / "features"
+        features_dir.mkdir()
+        feature_file = features_dir / "test.feature"
+        feature_file.write_text("Feature: Test\n")
+        
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        content = injector.generate(project_path=tmp_path)
+        
+        # Find positions
+        pos_done_condition = content.index("## Done Condition 規則")
+        pos_bdd_rules = content.index("## BDD 驗收規則")
+        pos_error_handling = content.index("## 錯誤處置")
+        
+        # Verify order: Done Condition -> BDD Rules -> Error Handling
+        assert pos_done_condition < pos_bdd_rules < pos_error_handling
+    
+    def test_has_features_detects_feature_files(self, tmp_path):
+        """Test _has_features() correctly detects .feature files."""
+        registry = SkillRegistry(tmp_path / "skills")
+        injector = AgentsInjector(registry, tmp_path / "TASK_STATE.md")
+        
+        # No features/ directory
+        assert injector._has_features(tmp_path) is False
+        
+        # Empty features/ directory
+        features_dir = tmp_path / "features"
+        features_dir.mkdir()
+        assert injector._has_features(tmp_path) is False
+        
+        # With .feature file
+        feature_file = features_dir / "test.feature"
+        feature_file.write_text("Feature: Test\n")
+        assert injector._has_features(tmp_path) is True

@@ -390,6 +390,8 @@ class TaskStateManager:
     def get_conditions(self) -> list[str]:
         """Get all Done Conditions from the state file.
         
+        Supports all condition types: file:, pytest:, func:, behave:
+        
         Returns:
             List of condition strings (without checkbox markers).
             Empty list if no Done Conditions block exists.

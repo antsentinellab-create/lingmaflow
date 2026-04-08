@@ -10,3 +10,7 @@ build/
 .coverage
 *.log
 .ipynb_checkpoints/
+.lingma/
+.contiune/
+.lingmaflow/
+.aider*
