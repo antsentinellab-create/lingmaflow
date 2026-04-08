@@ -23,14 +23,12 @@ class CallGraphAnalyzer:
         # Store function definitions: {file: {function_name: line_number}}
         self.function_defs: Dict[str, Dict[str, int]] = {}
         
-    def parse_file_to_graph(self, file_path: str, graph_manager, rel_path: str = None) -> None:
+    def parse_file_to_graph(self, file_path: str, graph_manager, rel_path: str = None) -> bool:
         """
         Parse a Python file and add AST nodes to the GraphManager.
         
-        Args:
-            file_path: Absolute path to the file
-            graph_manager: GraphManager instance to add nodes to
-            rel_path: Relative path for consistency (optional)
+        Returns:
+            True if parsing was successful, False otherwise.
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -42,8 +40,18 @@ class CallGraphAnalyzer:
             # Use relative path if provided, otherwise use absolute
             node_file_path = rel_path if rel_path else file_path
             
+            # Task: Create a module-level node to catch bare code (e.g., __main__ logic)
+            module_node_id = f"module:{node_file_path}"
+            graph_manager.add_node(
+                node_id=module_node_id,
+                node_type="module",
+                file_path=node_file_path,
+                start_line=1,
+                end_line=len(source_code.splitlines())
+            )
+            
             # Extract function/class definitions and add to graph
-            self._extract_nodes_to_graph(root_node, graph_manager, node_file_path, source_code)
+            has_nodes = self._extract_nodes_to_graph(root_node, graph_manager, node_file_path, source_code, parent_id=module_node_id)
             
             # Also extract call relationships for edges
             functions = self._extract_functions(root_node, file_path)
@@ -57,12 +65,17 @@ class CallGraphAnalyzer:
                         graph_manager.graph.add_edge(func_name, callee)
                     except:
                         pass  # Edge creation may fail if nodes don't exist yet
+            
+            return True
                     
         except Exception as e:
-            print(f"⚠️  Error parsing {file_path}: {e}")
+            print(f"⚠️  [MISSING_GRAPH_NODES] Failed to parse {file_path}: {e}")
+            return False
     
-    def _extract_nodes_to_graph(self, node, graph_manager, file_path: str, source_code: str) -> None:
+    def _extract_nodes_to_graph(self, node, graph_manager, file_path: str, source_code: str, parent_id: str = None) -> bool:
         """Extract AST nodes and add them to the graph with line numbers."""
+        has_nodes = False
+        
         if node.type in ['function_definition', 'class_definition']:
             # Get node name
             name_node = node.child_by_field_name('name')
@@ -83,10 +96,22 @@ class CallGraphAnalyzer:
                     start_line=start_line,
                     end_line=end_line
                 )
+                
+                # Link to parent (module or class)
+                if parent_id:
+                    try:
+                        graph_manager.graph.add_edge(parent_id, node_name)
+                    except:
+                        pass
+                
+                has_nodes = True
         
         # Recursively process child nodes
         for child in node.children:
-            self._extract_nodes_to_graph(child, graph_manager, file_path, source_code)
+            if self._extract_nodes_to_graph(child, graph_manager, file_path, source_code, parent_id):
+                has_nodes = True
+                
+        return has_nodes
     
     def parse_file(self, file_path: str) -> None:
         """Parse a single Python file and extract call relationships."""

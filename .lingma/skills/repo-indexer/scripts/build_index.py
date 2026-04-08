@@ -57,16 +57,23 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     python_files = list(repo_root.rglob("*.py"))
     print(f"🔍 Found {len(python_files)} Python files")
     
+    failed_files = []
     for idx, py_file in enumerate(python_files, 1):
         try:
             # Convert to relative path for consistency
             rel_path = str(py_file.relative_to(repo_root))
-            analyzer.parse_file_to_graph(str(py_file), graph_manager, file_path=rel_path)
+            if not analyzer.parse_file_to_graph(str(py_file), graph_manager, file_path=rel_path):
+                failed_files.append(rel_path)
             
             if idx % 100 == 0:
                 print(f"   Processed {idx}/{len(python_files)} files...")
         except Exception as e:
-            print(f"   ⚠️  Warning: Failed to parse {py_file}: {e}")
+            print(f"   ⚠️  [MISSING_GRAPH_NODES] Unexpected error for {py_file}: {e}")
+            failed_files.append(str(py_file.relative_to(repo_root)))
+    
+    if failed_files:
+        print(f"\n⚠️  [MISSING_GRAPH_NODES] {len(failed_files)} files failed AST parsing.")
+        print("   These files will have vector embeddings but no graph nodes (Orphan Vectors).")
     
     print(f"✅ Phase 1 Complete: {graph_manager.graph.number_of_nodes()} nodes in graph")
     
