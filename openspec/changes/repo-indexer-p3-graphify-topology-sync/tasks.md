@@ -55,36 +55,36 @@
 
 ## 6. 測試基礎設施 - 圖譜完整性驗證
 
-- [ ] 6.1 建立 `.lingma/skills/repo-indexer/scripts/test_graph_integrity.py` 測試套件
-- [ ] 6.2 使用 tmp_path 設置 pytest fixtures 含臨時 repo-graph 目錄
-- [ ] 6.3 建立輔助函數以建構已知結構的範例圖譜供測試使用
-- [ ] 6.4 Mock Chroma 回應以進行隔離的單元測試（無需真實嵌入）
+- [x] 6.1 建立 `.lingma/skills/repo-indexer/scripts/test_graph_integrity.py` 測試套件
+- [x] 6.2 使用 tmp_path 設置 pytest fixtures 含臨時 repo-graph 目錄
+- [x] 6.3 建立輔助函數以建構已知結構的範例圖譜供測試使用
+- [x] 6.4 Mock Chroma 回應以進行隔離的單元測試（無需真實嵌入）
 
 ## 7. 單元測試 - GraphManager 核心功能
 
-- [ ] 7.1 測試 `add_node()` 建立含正確屬性的節點（type, file_path, start_line, end_line, vector_ids=[]）
-- [ ] 7.2 測試 `add_node()` 當 node_id 非字串時拋出 TypeError（例如：tuple, int）
-- [ ] 7.3 測試 `link_vector_to_node()` 正確連結 vector_id 至具有交集行號範圍的節點
-- [ ] 7.4 測試多對多映射：當 chunk 橫跨多個函數時，一個 vector_id 連結至多個節點
-- [ ] 7.5 測試 `get_nodes_by_vector_id()` 回傳正確的節點 ID 列表
-- [ ] 7.6 測試 `get_filtered_neighbors()` 跳過 in_degree > max_in_degree 閾值的節點
-- [ ] 7.7 測試 `save()` 在寫入期間建立 topology.json 檔案和 .lock 檔案
-- [ ] 7.8 測試 `load()` 正確還原圖譜並重建 vector_to_nodes 索引
-- [ ] 7.9 測試空圖譜操作回傳適當的預設值（空列表、None）
+- [x] 7.1 測試 `add_node()` 建立含正確屬性的節點（type, file_path, start_line, end_line, vector_ids=[]）
+- [x] 7.2 測試 `add_node()` 當 node_id 非字串時拋出 TypeError（例如：tuple, int）
+- [x] 7.3 測試 `link_vector_to_node()` 正確連結 vector_id 至具有交集行號範圍的節點
+- [x] 7.4 測試多對多映射：當 chunk 橫跨多個函數時，一個 vector_id 連結至多個節點
+- [x] 7.5 測試 `get_nodes_by_vector_id()` 回傳正確的節點 ID 列表
+- [x] 7.6 測試 `get_filtered_neighbors()` 跳過 in_degree > max_in_degree 閾值的節點
+- [x] 7.7 測試 `save()` 在寫入期間建立 topology.json 檔案和 .lock 檔案
+- [x] 7.8 測試 `load()` 正確還原圖譜並重建 vector_to_nodes 索引
+- [x] 7.9 測試空圖譜操作回傳適當的預設值（空列表、None）
 
 ## 8. 單元測試 - 原子寫入與並發安全
 
-- [ ] 8.1 測試原子寫入：模擬 json.dump 期間崩潰並驗證無損毀的 topology.json 存在
-- [ ] 8.2 測試 SafeFileLock：兩個並發的 save() 呼叫應正確序列化（第二個等待第一個）
-- [ ] 8.3 測試孤兒鎖檢測：建立含舊時間戳記（>5 分鐘）的 .lock 檔案並驗證其自動清除
-- [ ] 8.4 測試含 List 屬性的 JSON 序列化：驗證 vector_ids 列表在 save/load 週期後正確保留
+- [x] 8.1 測試原子寫入：模擬 json.dump 期間崩潰並驗證無損毀的 topology.json 存在
+- [x] 8.2 測試 SafeFileLock：兩個並發的 save() 呼叫應正確序列化（第二個等待第一個）
+- [x] 8.3 測試孤兒鎖檢測：建立含舊時間戳記（>5 分鐘）的 .lock 檔案並驗證其自動清除
+- [x] 8.4 測試含 List 屬性的 JSON 序列化：驗證 vector_ids 列表在 save/load 週期後正確保留
 
 ## 9. 單元測試 - 精確行號映射
 
-- [ ] 9.1 測試 PrecisionLineCodeSplitter 處理 CRLF 檔案：驗證正規化後行號符合預期值
-- [ ] 9.2 測試不同位置的三個相同函數：驗證每個 chunk 映射至正確的函數節點（無幽靈映射）
-- [ ] 9.3 測試橫跨多個函數的 chunk：驗證 vector_id 連結至所有交集節點（多對多）
-- [ ] 9.4 測試相對路徑轉換：驗證 file_path 儲存為相對路徑，非絕對路徑
+- [x] 9.1 測試 PrecisionLineCodeSplitter 處理 CRLF 檔案：驗證正規化後行號符合預期值
+- [x] 9.2 測試不同位置的三個相同函數：驗證每個 chunk 映射至正確的函數節點（無幽靈映射）
+- [x] 9.3 測試橫跨多個函數的 chunk：驗證 vector_id 連結至所有交集節點（多對多）
+- [x] 9.4 測試相對路徑轉換：驗證 file_path 儲存為相對路徑，非絕對路徑
 
 ## 10. 整合測試 - 端到端工作流
 
