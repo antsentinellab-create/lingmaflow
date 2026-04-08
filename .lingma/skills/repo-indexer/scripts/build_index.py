@@ -92,7 +92,7 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
         input_dir=str(repo_root),
         recursive=True,
         required_exts=extensions,
-        exclude=["*.venv/*", "venv/*", "node_modules/*", "__pycache__/*", "*.egg-info/*"]
+        exclude=["**/.*", "**/.venv/*", "**/__pycache__/*"]
     ).load_data()
     
     print(f"📄 Loaded {len(documents)} documents")
