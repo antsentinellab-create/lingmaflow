@@ -20,14 +20,14 @@
 
 ## 3. 精確切片器 - 字元偏移量行號追蹤
 
-- [ ] 3.1 建立 `.lingma/skills/repo-indexer/scripts/precision_splitter.py` 模組
-- [ ] 3.2 實作 `PrecisionLineCodeSplitter` 類別繼承 LlamaIndex CodeSplitter
-- [ ] 3.3 覆寫 `get_nodes_from_documents()` 以在切片過程中追蹤字元偏移量
-- [ ] 3.4 實作跨平台換行符正規化：使用 `newline=''` 讀取，將 `\r\n` 轉換為 `\n`
-- [ ] 3.5 使用 `content[:char_pos].count('\n') + 1` 計算每個 chunk 的精確 start_line
-- [ ] 3.6 注入精確 metadata：`node.metadata['start_line']`, `node.metadata['end_line']`, `node.metadata['file_path']`（相對路徑）
-- [ ] 3.7 移除所有模糊比對邏輯（str.find, str.index）以防止樣板代碼錯位
-- [ ] 3.8 測試三個不同位置的相同 `def hello(): pass` 以驗證 100% 準確率
+- [x] 3.1 建立 `.lingma/skills/repo-indexer/scripts/precision_splitter.py` 模組
+- [x] 3.2 實作 `PrecisionLineCodeSplitter` 類別繼承 LlamaIndex CodeSplitter
+- [x] 3.3 覆寫 `get_nodes_from_documents()` 以在切片過程中追蹤字元偏移量
+- [x] 3.4 實作跨平台換行符正規化：使用 `newline=''` 讀取，將 `\r\n` 轉換為 `\n`
+- [x] 3.5 使用 `content[:char_pos].count('\n') + 1` 計算每個 chunk 的精確 start_line
+- [x] 3.6 注入精確 metadata：`node.metadata['start_line']`, `node.metadata['end_line']`, `node.metadata['file_path']`（相對路徑）
+- [x] 3.7 移除所有模糊比對邏輯（str.find, str.index）以防止樣板代碼錯位
+- [x] 3.8 測試三個不同位置的相同 `def hello(): pass` 以驗證 100% 準確率
 
 ## 4. 索引建構整合 - AST 優先的雙維建構
 
