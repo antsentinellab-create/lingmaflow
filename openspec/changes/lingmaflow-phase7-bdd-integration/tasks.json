@@ -218,10 +218,10 @@
   {
     "id": "5.8",
     "description": "撰寫 scenario: feature_locks.json 損毀時的錯誤處理測試案例",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T04:49:13.085568Z",
+    "notes": "test_verify_invalid_locks_file 已增強,驗證錯誤訊息包含 'invalid'、'feature_locks.json' 與修復建議 'lingmaflow feature-lock --all'"
   },
   {
     "id": "5.9",

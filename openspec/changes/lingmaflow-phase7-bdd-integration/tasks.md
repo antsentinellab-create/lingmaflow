@@ -39,7 +39,7 @@
 - [X] 5.5 建立 tests/test_feature_lock.py,測試 FeatureLock.lock() 與 verify() 邏輯
 - [X] 5.6 撰寫 scenario: hash 一致時驗證通過的測試案例
 - [X] 5.7 撰寫 scenario: hash 不一致時驗證失敗的測試案例
-- [ ] 5.8 撰寫 scenario: feature_locks.json 損毀時的錯誤處理測試案例
+- [X] 5.8 撰寫 scenario: feature_locks.json 損毀時的錯誤處理測試案例
 - [ ] 5.9 執行 pytest tests/ 確保所有新測試通過且無 regression
 
 ## 6. openspec propose 模板更新
