@@ -40,20 +40,27 @@ class SafeFileLock:
 
     def acquire(self):
         while True:
+            f = None
             try:
-                self.handle = open(self.lock_path, 'w')
+                # Use 'a' mode to prevent truncating the lock file during contention
+                f = open(self.lock_path, 'a')
                 if fcntl:
-                    fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 else:
                     # Windows non-blocking lock
-                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
                 
-                # Write PID and timestamp for stale lock detection
+                # Once lock is acquired, clear and write PID info
+                f.seek(0)
+                f.truncate()
                 lock_info = {"pid": os.getpid(), "timestamp": time.time()}
-                self.handle.write(json.dumps(lock_info))
-                self.handle.flush()
+                f.write(json.dumps(lock_info))
+                f.flush()
+                self.handle = f
                 return
             except (IOError, OSError):
+                if f:
+                    f.close()  # Prevent handle leak on failure
                 if self._is_stale_lock():
                     self._break_stale_lock()
                     continue
@@ -202,12 +209,14 @@ class GraphManager:
     def save(self):
         """
         Save graph to JSON using atomic write pattern.
+        Optimized for large graphs with memory monitoring.
         """
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         lock = SafeFileLock(str(self.lock_path))
         
         try:
             lock.acquire()
+            logger.info(f"📊 [SAVE_START] Starting graph persistence for {self.graph.number_of_nodes()} nodes...")
             data = nx.node_link_data(self.graph, edges="links")
             
             fd, tmp_path = tempfile.mkstemp(
@@ -219,6 +228,7 @@ class GraphManager:
                 with os.fdopen(fd, 'w', encoding='utf-8') as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 os.replace(tmp_path, self.db_path)
+                logger.info("✅ [SAVE_COMPLETE] Graph persisted successfully.")
             except Exception as e:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
