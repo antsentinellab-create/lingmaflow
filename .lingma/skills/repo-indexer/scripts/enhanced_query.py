@@ -72,6 +72,10 @@ class EnhancedCodebaseQuery:
         start_line = attrs.get("start_line", 1)
         end_line = attrs.get("end_line", 1)
         
+        # Defensive check: Ensure file_path exists
+        if not rel_path:
+            return f"# [HYDRATION_ERROR] Node '{node_id}' has no file_path attribute."
+        
         # Task 5.8: Path resolution using repo_root
         abs_path = self.repo_root / rel_path
         
