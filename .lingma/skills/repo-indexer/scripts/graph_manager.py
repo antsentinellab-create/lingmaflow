@@ -8,11 +8,16 @@ and provides hybrid retrieval capabilities.
 import os
 import json
 import time
+import errno
 import tempfile
+import logging
 import networkx as nx
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 from collections import defaultdict
+
+# Configure dedicated logger for GraphManager
+logger = logging.getLogger("GraphManager")
 
 # Cross-platform file locking support
 try:
@@ -56,29 +61,35 @@ class SafeFileLock:
 
     def _is_stale_lock(self) -> bool:
         """
-        Check if the lock file is stale (older than timeout).
-        Handles race conditions and permission errors robustly.
+        Optimized stale lock check logic.
+        Solves Race Condition (TOCTOU) and refuses silent failures.
         """
         try:
-            if not self.lock_path.exists():
-                return False
-            
+            # Get file metadata directly to avoid Time-of-check to time-of-use issues
             stat = self.lock_path.stat()
-            age = time.time() - stat.st_mtime
             
-            if age > self.timeout:
-                print(f"🔓 [STALE_LOCK] Lock file is {age:.1f}s old (timeout: {self.timeout}s). Breaking...")
+            # Check if the lock has expired
+            if time.time() - stat.st_mtime > self.timeout:
+                logger.warning(f"[STALE_LOCK] Detected expired lock at {self.lock_path}. Overriding.")
                 return True
+                
         except FileNotFoundError:
-            # Race condition: file was deleted between exists() and stat()
+            # Explicit handling: file disappeared during operation, treat as lock released
             return False
-        except PermissionError as e:
-            print(f"⚠️  [LOCK_PERMISSION_ERROR] Cannot access lock file: {e}")
-            raise  # Re-raise to prevent silent infinite loops
-        except OSError as e:
-            print(f"⚠️  [LOCK_IO_ERROR] Filesystem error during lock check: {e}")
-            raise  # Re-raise to handle hardware/disk issues at a higher level
             
+        except PermissionError as e:
+            # Refuse silent failure: permission issues must bubble up to prevent infinite loops
+            logger.error(f"[LOCK_IO_ERROR] Permission denied accessing lock: {e}")
+            raise
+            
+        except OSError as e:
+            # Capture serious disk/system failures (e.g., disk corruption or read-only mode)
+            if e.errno == errno.ENOSPC:
+                logger.error(f"[LOCK_IO_ERROR] Disk full, cannot manage locks: {e}")
+            else:
+                logger.error(f"[LOCK_IO_ERROR] OS level failure: {e}")
+            raise
+
         return False
 
     def _break_stale_lock(self):
