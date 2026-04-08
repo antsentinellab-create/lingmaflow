@@ -9,10 +9,23 @@ import os
 import sqlite3
 import json
 import logging
+import struct
+import itertools
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple, Any, Iterator
+
+# Import sqlite-vec for high-performance vector search
+try:
+    import sqlite_vec
+except ImportError:
+    sqlite_vec = None
+    logger.warning("sqlite-vec not installed. Vector search will be disabled.")
 
 logger = logging.getLogger("DatabaseManager")
+
+def serialize_float32(vector: List[float]) -> bytes:
+    """Convert a list of floats to a binary blob for sqlite-vec."""
+    return struct.pack(f'{len(vector)}f', *vector)
 
 class DatabaseManager:
     """
@@ -20,8 +33,9 @@ class DatabaseManager:
     Implements WAL mode for high-concurrency read/write operations.
     """
     
-    def __init__(self, db_path: str = "repo-index/codebase.db"):
+    def __init__(self, db_path: str = "repo-index/codebase.db", embedding_dim: int = 1536):
         self.db_path = Path(db_path)
+        self.embedding_dim = embedding_dim
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = None
         self._init_db()
@@ -32,6 +46,10 @@ class DatabaseManager:
             self.conn = sqlite3.connect(str(self.db_path))
             self.conn.row_factory = sqlite3.Row
             
+            # Enable sqlite-vec extension if available
+            if sqlite_vec:
+                sqlite_vec.load(self.conn)
+            
             # Configure for performance and concurrency
             self.conn.execute("PRAGMA journal_mode=WAL;")
             self.conn.execute("PRAGMA synchronous=NORMAL;")
@@ -40,6 +58,7 @@ class DatabaseManager:
             
             logger.info(f"✅ Database initialized at {self.db_path} (WAL mode enabled)")
             self._create_tables()
+            self._warmup_cache()
         except Exception as e:
             logger.error(f"❌ Failed to initialize database: {e}")
             raise
@@ -80,9 +99,32 @@ class DatabaseManager:
         CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
         CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
         CREATE INDEX IF NOT EXISTS idx_vectors_node_id ON vectors(node_id);
+
+        -- Virtual Table for Vector Search (Dimension is parameterized)
         """
+        if sqlite_vec:
+            schema_sql += f"""
+            CREATE VIRTUAL TABLE IF NOT EXISTS vec_nodes USING vec0(
+                node_id TEXT PRIMARY KEY,
+                embedding FLOAT[{self.embedding_dim}]
+            );
+            """
         self.conn.executescript(schema_sql)
         self.conn.commit()
+
+    def _warmup_cache(self):
+        """
+        Warm up the OS page cache by scanning the vector index.
+        This ensures subsequent AI queries achieve 'instant-on' performance.
+        """
+        try:
+            if sqlite_vec:
+                self.conn.execute("SELECT count(*) FROM vec_nodes")
+            self.conn.execute("SELECT count(*) FROM nodes")
+            self.conn.execute("SELECT count(*) FROM edges")
+            logger.info("🔥 Database cache warmed up successfully")
+        except Exception as e:
+            logger.warning(f"Cache warm-up skipped (tables might be empty): {e}")
 
     # --- Node Operations ---
 
@@ -101,19 +143,31 @@ class DatabaseManager:
             self.conn.rollback()
             raise
 
-    def add_nodes_batch(self, nodes: List[Tuple]):
-        """Batch insert nodes for better performance (Auto-commits)."""
-        try:
-            self.conn.executemany(
-                "INSERT OR REPLACE INTO nodes VALUES (?, ?, ?, ?, ?, ?)",
-                nodes
-            )
-            self.conn.commit()
-            logger.info(f"📦 Batch inserted {len(nodes)} nodes")
-        except Exception as e:
-            logger.error(f"Failed batch node insertion: {e}")
-            self.conn.rollback()
-            raise
+    def add_nodes_batch(self, nodes: Iterator[Tuple] | List[Tuple], batch_size: int = 5000):
+        """
+        Batch insert nodes using a generator to minimize RAM usage.
+        
+        Args:
+            nodes: An iterator or list of node tuples.
+            batch_size: Number of records per transaction (default 5000).
+        """
+        if isinstance(nodes, list):
+            nodes = iter(nodes)
+            
+        while True:
+            batch = list(itertools.islice(nodes, batch_size))
+            if not batch:
+                break
+            try:
+                with self.conn:
+                    self.conn.executemany(
+                        "INSERT OR REPLACE INTO nodes VALUES (?, ?, ?, ?, ?, ?)",
+                        batch
+                    )
+                logger.info(f"📦 Committed batch of {len(batch)} nodes")
+            except Exception as e:
+                logger.error(f"Failed batch node insertion: {e}")
+                raise
 
     def execute_in_transaction(self, operations_func):
         """
@@ -200,12 +254,76 @@ class DatabaseManager:
         cursor = self.conn.execute(query, (node_id, depth))
         return [row[0] for row in cursor.fetchall()]
 
+    def get_call_chain_with_depth(self, start_node_id: str, direction: str = "forward", max_depth: int = 3) -> List[Tuple[str, int]]:
+        """
+        Get the full call chain with depth information.
+        Handles both forward (callees) and backward (callers) traversal.
+        """
+        if direction == "forward":
+            # Find nodes that this node calls (Source -> Target)
+            query = """
+            WITH RECURSIVE call_chain AS (
+                SELECT target_id as connected_id, 1 as depth FROM edges WHERE source_id = ?
+                UNION ALL
+                SELECT e.target_id, cc.depth + 1 
+                FROM edges e 
+                JOIN call_chain cc ON e.source_id = cc.connected_id 
+                WHERE cc.depth < ?
+            )
+            SELECT connected_id, MIN(depth) as min_depth FROM call_chain GROUP BY connected_id ORDER BY min_depth;
+            """
+        else: # backward
+            # Find nodes that call this node (Target <- Source)
+            query = """
+            WITH RECURSIVE call_chain AS (
+                SELECT source_id as connected_id, 1 as depth FROM edges WHERE target_id = ?
+                UNION ALL
+                SELECT e.source_id, cc.depth + 1 
+                FROM edges e 
+                JOIN call_chain cc ON e.target_id = cc.connected_id 
+                WHERE cc.depth < ?
+            )
+            SELECT connected_id, MIN(depth) as min_depth FROM call_chain GROUP BY connected_id ORDER BY min_depth;
+            """
+        
+        cursor = self.conn.execute(query, (start_node_id, max_depth))
+        return cursor.fetchall()
+
+    def find_shortest_path(self, source_id: str, target_id: str, max_depth: int = 10) -> Optional[List[str]]:
+        """
+        Find the shortest path between two nodes using BFS-like recursive CTE.
+        Uses comma-delimited path matching to prevent sub-string false positives.
+        """
+        query = """
+        WITH RECURSIVE search_path AS (
+            SELECT 
+                ? as current_id,
+                CAST(? AS TEXT) as path,
+                0 as depth
+            UNION ALL
+            SELECT 
+                e.target_id,
+                sp.path || ',' || e.target_id,
+                sp.depth + 1
+            FROM edges e
+            JOIN search_path sp ON e.source_id = sp.current_id
+            WHERE sp.depth < ?
+            AND INSTR(',' || sp.path || ',', ',' || e.target_id || ',') = 0 -- Prevent cycles with boundary check
+        )
+        SELECT path FROM search_path WHERE current_id = ? LIMIT 1;
+        """
+        cursor = self.conn.execute(query, (source_id, source_id, max_depth, target_id))
+        result = cursor.fetchone()
+        if result:
+            return result[0].split(',')
+        return None
+
     # --- Vector Operations ---
 
     def add_vector(self, vector_id: str, node_id: str, embedding: bytes, 
                    code_content: str = None, chunk_start: int = None, 
                    chunk_end: int = None):
-        """Store a vector embedding."""
+        """Store a single vector embedding."""
         try:
             self.conn.execute(
                 "INSERT OR REPLACE INTO vectors VALUES (?, ?, ?, ?, ?, ?)",
@@ -217,12 +335,93 @@ class DatabaseManager:
             self.conn.rollback()
             raise
 
+    def add_vectors_batch(self, vectors_data: List[Tuple]):
+        """
+        Batch insert vectors into vec_nodes virtual table using a transaction.
+        This is 50-100x faster than individual inserts for large datasets.
+        
+        Args:
+            vectors_data: List of tuples (node_id, binary_embedding).
+        """
+        if not sqlite_vec:
+            logger.error("sqlite-vec not loaded. Cannot batch insert vectors.")
+            return
+
+        try:
+            with self.conn: # Automatically handles BEGIN TRANSACTION and COMMIT
+                self.conn.executemany(
+                    "INSERT OR REPLACE INTO vec_nodes(node_id, embedding) VALUES (?, ?)",
+                    vectors_data
+                )
+            logger.info(f"🚀 Batch inserted {len(vectors_data)} vectors into vec_nodes")
+        except Exception as e:
+            logger.error(f"Failed batch vector insertion: {e}")
+            raise
+
     def get_vectors_by_node(self, node_id: str) -> List[Dict]:
         """Get all vectors associated with a node."""
         cursor = self.conn.execute(
             "SELECT * FROM vectors WHERE node_id = ?", (node_id,)
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    def hybrid_search(self, query_embedding: List[float], limit: int = 5, graph_depth: int = 2, alpha: float = 0.7) -> List[Dict]:
+        """
+        Advanced Hybrid Search: Combines Vector Similarity with Graph Traversal.
+        
+        Formula: score = alpha * vector_sim + (1 - alpha) * (1 / (graph_dist + 1))
+        
+        Args:
+            query_embedding: The query vector.
+            limit: Number of final results to return.
+            graph_depth: How many hops to traverse from vector matches.
+            alpha: Weight for vector similarity (0.0 to 1.0).
+        """
+        if not sqlite_vec:
+            logger.error("sqlite-vec is not loaded.")
+            return []
+
+        # Step 1: Vector Search to get initial candidates
+        binary_query = serialize_float32(query_embedding)
+        cursor = self.conn.execute(
+            "SELECT node_id, vec_distance_cosine(embedding, ?) as dist FROM vec_nodes ORDER BY dist ASC LIMIT ?",
+            (binary_query, limit * 2) # Fetch more candidates for graph expansion
+        )
+        vector_results = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        if not vector_results:
+            return []
+
+        # Step 2: Graph Traversal & Scoring
+        final_scores = {}
+        for seed_node_id, vec_dist in vector_results.items():
+            # Calculate base vector score (1 - distance)
+            vec_score = 1.0 - vec_dist
+            
+            # Get neighbors via CTE
+            neighbors = self.get_call_chain_with_depth(seed_node_id, direction="backward", max_depth=graph_depth)
+            
+            for neighbor_id, depth in neighbors:
+                # Graph score: closer nodes get higher scores
+                graph_score = 1.0 / (depth + 1)
+                
+                # Combined Score
+                combined = alpha * vec_score + (1 - alpha) * graph_score
+                
+                if neighbor_id not in final_scores or combined > final_scores[neighbor_id]['score']:
+                    # Fetch metadata only for high-scoring nodes
+                    meta = self.get_node(neighbor_id)
+                    if meta:
+                        final_scores[neighbor_id] = {
+                            'score': combined,
+                            'vector_dist': vec_dist,
+                            'graph_depth': depth,
+                            'metadata': meta
+                        }
+
+        # Sort by combined score and return top N
+        sorted_results = sorted(final_scores.values(), key=lambda x: x['score'], reverse=True)[:limit]
+        return sorted_results
 
     def close(self):
         """Close the database connection."""
