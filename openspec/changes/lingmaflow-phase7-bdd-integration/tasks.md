@@ -36,7 +36,7 @@
 - [X] 5.2 撰寫 scenario: behave 全綠時條件達成的測試案例（使用 mock subprocess）
 - [X] 5.3 撰寫 scenario: behave 失敗時條件未達成的測試案例
 - [X] 5.4 撰寫 scenario: behave 命令不存在時的錯誤處理測試案例
-- [ ] 5.5 建立 tests/test_feature_lock.py,測試 FeatureLock.lock() 與 verify() 邏輯
+- [X] 5.5 建立 tests/test_feature_lock.py,測試 FeatureLock.lock() 與 verify() 邏輯
 - [ ] 5.6 撰寫 scenario: hash 一致時驗證通過的測試案例
 - [ ] 5.7 撰寫 scenario: hash 不一致時驗證失敗的測試案例
 - [ ] 5.8 撰寫 scenario: feature_locks.json 損毀時的錯誤處理測試案例
