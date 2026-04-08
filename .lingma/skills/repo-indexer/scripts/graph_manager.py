@@ -55,15 +55,30 @@ class SafeFileLock:
                 time.sleep(0.1)
 
     def _is_stale_lock(self) -> bool:
-        if not self.lock_path.exists():
-            return False
+        """
+        Check if the lock file is stale (older than timeout).
+        Handles race conditions and permission errors robustly.
+        """
         try:
+            if not self.lock_path.exists():
+                return False
+            
             stat = self.lock_path.stat()
-            if time.time() - stat.st_mtime > self.timeout:
+            age = time.time() - stat.st_mtime
+            
+            if age > self.timeout:
+                print(f"🔓 [STALE_LOCK] Lock file is {age:.1f}s old (timeout: {self.timeout}s). Breaking...")
                 return True
+        except FileNotFoundError:
+            # Race condition: file was deleted between exists() and stat()
+            return False
+        except PermissionError as e:
+            print(f"⚠️  [LOCK_PERMISSION_ERROR] Cannot access lock file: {e}")
+            raise  # Re-raise to prevent silent infinite loops
         except OSError as e:
-            # Log permission or filesystem errors instead of silently ignoring
-            print(f"⚠️  [LOCK_CHECK_ERROR] Failed to check lock status: {e}")
+            print(f"⚠️  [LOCK_IO_ERROR] Filesystem error during lock check: {e}")
+            raise  # Re-raise to handle hardware/disk issues at a higher level
+            
         return False
 
     def _break_stale_lock(self):
