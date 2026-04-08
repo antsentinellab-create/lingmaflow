@@ -7,16 +7,16 @@
 
 ## 2. 核心實作 - GraphManager 含原子寫入
 
-- [ ] 2.1 建立 `.lingma/skills/repo-indexer/scripts/graph_manager.py` 模組
-- [ ] 2.2 實作 `GraphManager.__init__(db_path="repo-graph/topology.json")` 使用 NetworkX DiGraph
-- [ ] 2.3 實作 `add_node(node_id: str, ...)` 含嚴格型別斷言：`assert isinstance(node_id, str)`
-- [ ] 2.4 實作 `link_vector_to_node(vector_id, chunk_start, chunk_end, file_path)` 使用行號交集邏輯
-- [ ] 2.5 實作 `get_nodes_by_vector_id(vector_id)` 用於從 vector_to_nodes 索引進行反向查詢
-- [ ] 2.6 實作 `get_filtered_neighbors(node_id, hop=1, max_in_degree=10)` 含度數過濾以跳過工具函數
-- [ ] 2.7 實作 `save()` 使用原子寫入模式：tempfile.mkstemp() → json.dump() → os.replace()
-- [ ] 2.8 實作 `SafeFileLock` 類別使用 fcntl.flock() 與孤兒鎖檢測（5分鐘超時 + PID 檢查）
-- [ ] 2.9 實作 `load()` 使用 `nx.node_link_graph()` 並重建 vector_to_nodes 反向索引
-- [ ] 2.10 確保所有 file_path 屬性儲存為相對路徑（非絕對路徑）
+- [x] 2.1 建立 `.lingma/skills/repo-indexer/scripts/graph_manager.py` 模組
+- [x] 2.2 實作 `GraphManager.__init__(db_path="repo-graph/topology.json")` 使用 NetworkX DiGraph
+- [x] 2.3 實作 `add_node(node_id: str, ...)` 含嚴格型別斷言：`assert isinstance(node_id, str)`
+- [x] 2.4 實作 `link_vector_to_node(vector_id, chunk_start, chunk_end, file_path)` 使用行號交集邏輯
+- [x] 2.5 實作 `get_nodes_by_vector_id(vector_id)` 用於從 vector_to_nodes 索引進行反向查詢
+- [x] 2.6 實作 `get_filtered_neighbors(node_id, hop=1, max_in_degree=10)` 含度數過濾以跳過工具函數
+- [x] 2.7 實作 `save()` 使用原子寫入模式：tempfile.mkstemp() → json.dump() → os.replace()
+- [x] 2.8 實作 `SafeFileLock` 類別使用 fcntl.flock() 與孤兒鎖檢測（5分鐘超時 + PID 檢查）
+- [x] 2.9 實作 `load()` 使用 `nx.node_link_graph()` 並重建 vector_to_nodes 反向索引
+- [x] 2.10 確保所有 file_path 屬性儲存為相對路徑（非絕對路徑）
 
 ## 3. 精確切片器 - 字元偏移量行號追蹤
 
