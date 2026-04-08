@@ -204,5 +204,17 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
 
 
 if __name__ == "__main__":
-    input_dir = sys.argv[1] if len(sys.argv) > 1 else "."
-    build_index(input_dir=input_dir)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Build Hybrid RAG Index (Vector + Graph)")
+    parser.add_argument("--input-dir", type=str, default=".", help="Root directory of the repository")
+    parser.add_argument("--output-dir", type=str, default="./repo-index", help="Path for Chroma vector store")
+    args = parser.parse_args()
+
+    # Enforce absolute paths to avoid ambiguity in relative path calculations
+    abs_input = os.path.abspath(args.input_dir)
+    if not os.path.exists(abs_input):
+        print(f"❌ Error: Input directory {abs_input} not found.")
+        sys.exit(1)
+        
+    build_index(input_dir=abs_input, output_dir=args.output_dir)
