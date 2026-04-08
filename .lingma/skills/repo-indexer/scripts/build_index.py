@@ -88,12 +88,32 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     print("PHASE 2: Document Loading & Precision Chunking")
     print("="*60)
     
-    documents = SimpleDirectoryReader(
-        input_dir=str(repo_root),
-        recursive=True,
-        required_exts=extensions,
-        exclude=["**/.*", "**/.venv/*", "**/__pycache__/*"]
-    ).load_data()
+    # Aggressively filter out unwanted directories before loading
+    all_files = list(repo_root.rglob("*.py"))
+    filtered_files = [
+        f for f in all_files 
+        if ".venv" not in f.parts and 
+           "node_modules" not in f.parts and 
+           "__pycache__" not in f.parts and
+           not f.name.startswith(".")
+    ]
+    print(f"📄 Found {len(filtered_files)} Python files (filtered from {len(all_files)})")
+    
+    documents = []
+    for py_file in filtered_files:
+        try:
+            with open(py_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            # Create a simple document with metadata
+            from llama_index.core import Document
+            rel_path = str(py_file.relative_to(repo_root))
+            doc = Document(
+                text=content,
+                metadata={"file_path": rel_path, "language": "python"}
+            )
+            documents.append(doc)
+        except Exception:
+            continue
     
     print(f"📄 Loaded {len(documents)} documents")
     
