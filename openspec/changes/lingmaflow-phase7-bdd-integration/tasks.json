@@ -322,10 +322,10 @@
   {
     "id": "7.7",
     "description": "文件化 ai-factory 的 6 個 feature files 作為參考案例",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:30:41.639746Z",
+    "notes": "更新 bdd-integration.md 第2節,將通用範例替換為 ai-factory 6個真實 feature files (remove_dead_orchestrator、fix_random_seed等),並提供 fix_random_seed.feature 的完整 Gherkin 範例"
   },
   {
     "id": "8.1",
