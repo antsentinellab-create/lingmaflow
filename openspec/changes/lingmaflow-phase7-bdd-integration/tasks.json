@@ -346,10 +346,10 @@
   {
     "id": "8.3",
     "description": "在 ai-factory 每個 change 的 Done Condition 中加入對應的 behave: instruction",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:47:49.344865Z",
+    "notes": "在 AI-Factory 6個 changes 的 tasks.md 中加入 behave: instruction: remove-dead-orchestrator, fix-random-seed, unify-max-retry, storage-write-lock, protocol-action-routing, router-side-effect-free (refactor-router-decision-chain)"
   },
   {
     "id": "8.4",
