@@ -290,10 +290,10 @@
   {
     "id": "7.3",
     "description": "執行 `lingmaflow verify` 驗證 behave: condition 被正確識別與執行",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:06:18.445702Z",
+    "notes": "在 TASK_STATE.md 加入 behave:features/test_passing.feature,執行 verify 成功識別並執行,顯示 ✅ behave:features/test_passing.feature"
   },
   {
     "id": "7.4",
