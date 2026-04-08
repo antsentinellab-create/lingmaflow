@@ -370,9 +370,9 @@
   {
     "id": "8.6",
     "description": "記錄實戰中使用 BDD 取代 code review 的工作量節省數據",
-    "done": false,
+    "done": true,
     "started_at": null,
-    "completed_at": null,
-    "notes": ""
+    "completed_at": "2026-04-08T05:57:32.130712Z",
+    "notes": "新增實戰紀錄區塊到 bdd-integration.md,包含 Phase 7 整合日期、6個 feature files 鎖定狀態、step 衝突修復紀錄、Phase 1 基線測試結果 (6 passed, 6 failed, 3 errored)、預估節省 70% code review 工作量的詳細計算依據"
   }
 ]
