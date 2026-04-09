@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Build codebase vector index using LlamaIndex + Chroma with AST-first topology graph.
+Build codebase vector index using SQLite Hybrid DB (Vector + Graph).
 This script implements the dual-dimension indexing:
-1. AST-based Call Graph (NetworkX)
-2. Vector Index (Chroma) with precise line number mapping
+1. AST-based Call Graph (SQLite Edges)
+2. Vector Index (sqlite-vec) with precise line number mapping
 """
 
 import os
@@ -14,35 +14,32 @@ import psutil
 # Add scripts directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from llama_index.core import SimpleDirectoryReader
-from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.schema import Document
-import chromadb
+from llama_index.core import SimpleDirectoryReader
 
 from call_graph import CallGraphAnalyzer
 from graph_manager import GraphManager
 from precision_splitter import PrecisionLineCodeSplitter
+from database_manager import DatabaseManager, serialize_float32
 
 
 def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     """
-    Build dual-dimension index: Vector (Chroma) + Graph (NetworkX).
+    Build dual-dimension index: Vector (sqlite-vec) + Graph (SQLite).
     
     Phase 1: AST Parsing & Graph Construction (Source of Truth)
     Phase 2: Document Loading & Precision Chunking
-    Phase 3: Embedding & Chroma Storage with UUID Binding
+    Phase 3: Embedding & SQLite Storage with UUID Binding
     Phase 4: Persistence with Memory Monitoring
     """
     if extensions is None:
         extensions = [".py"]
     
     repo_root = Path(input_dir).resolve()
-    graph_db_path = repo_root / "repo-graph" / "topology.json"
+    db_path = Path(output_dir) / "codebase.db"
     
     print(f"📂 Repo Root: {repo_root}")
-    print(f"🗺️  Graph DB: {graph_db_path}")
-    print(f"💾 Vector Store: {output_dir}")
+    print(f"💾 Hybrid DB: {db_path}")
     
     # ============================================================
     # PHASE 1: AST PARSING & GRAPH CONSTRUCTION (Source of Truth)
@@ -51,7 +48,16 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     print("PHASE 1: AST Parsing & Graph Construction")
     print("="*60)
     
-    graph_manager = GraphManager(db_path=str(graph_db_path))
+    # Initialize SQLite Database Manager
+    embedding_dim = 384  # BAAI/bge-small-en-v1.5 produces 384-dimensional vectors
+    db_manager = DatabaseManager(db_path=str(db_path), embedding_dim=embedding_dim)
+    
+    # Use temporary GraphManager for in-memory AST processing
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as tmp:
+        temp_graph_path = tmp.name
+    
+    graph_manager = GraphManager(db_path=temp_graph_path)
     analyzer = CallGraphAnalyzer()
     
     python_files = list(repo_root.rglob("*.py"))
@@ -81,6 +87,36 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     
     print(f"✅ Phase 1 Complete: {graph_manager.graph.number_of_nodes()} nodes in graph")
     
+    # Migrate graph to SQLite
+    print("   🚀 Migrating graph to SQLite...")
+    def node_generator():
+        for node_id, data in graph_manager.graph.nodes(data=True):
+            yield (
+                node_id,
+                data.get("type", "unknown"),
+                data.get("file_path", ""),
+                data.get("start_line", 0),
+                data.get("end_line", 0),
+                str({k: v for k, v in data.items() if k not in ["type", "file_path", "start_line", "end_line"]})
+            )
+    
+    db_manager.add_nodes_batch(node_generator(), batch_size=5000)
+    
+    def edge_generator():
+        for source, target, data in graph_manager.graph.edges(data=True):
+            yield (source, target, data.get("relation_type", "CALLS"))
+    
+    db_manager.add_edges_batch(edge_generator(), batch_size=10000)
+    print(f"   ✅ Graph migrated: {graph_manager.graph.number_of_edges()} edges")
+    
+    # Cleanup temporary graph file
+    try:
+        os.remove(temp_graph_path)
+        if os.path.exists(temp_graph_path.replace('.json', '.lock')):
+            os.remove(temp_graph_path.replace('.json', '.lock'))
+    except:
+        pass
+    
     # ============================================================
     # PHASE 2: DOCUMENT LOADING & PRECISION CHUNKING
     # ============================================================
@@ -91,7 +127,7 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     # Aggressively filter out unwanted directories before loading
     all_files = list(repo_root.rglob("*.py"))
     filtered_files = [
-        f for f in all_files 
+        str(f) for f in all_files 
         if ".venv" not in f.parts and 
            "node_modules" not in f.parts and 
            "__pycache__" not in f.parts and
@@ -99,23 +135,10 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     ]
     print(f"📄 Found {len(filtered_files)} Python files (filtered from {len(all_files)})")
     
-    documents = []
-    for py_file in filtered_files:
-        try:
-            with open(py_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-            # Create a simple document with metadata
-            from llama_index.core import Document
-            rel_path = str(py_file.relative_to(repo_root))
-            doc = Document(
-                text=content,
-                metadata={"file_path": rel_path, "language": "python"}
-            )
-            documents.append(doc)
-        except Exception:
-            continue
-    
-    print(f"📄 Loaded {len(documents)} documents")
+    # Use SimpleDirectoryReader with parallel processing
+    reader = SimpleDirectoryReader(input_files=filtered_files)
+    documents = reader.load_data()
+    print(f"📄 Loaded {len(documents)} documents via Parallel Reader")
     
     if not documents:
         print("❌ No documents found.")
@@ -133,22 +156,30 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     print(f"✂️  Created {len(nodes)} nodes with precise line numbers")
     
     # ============================================================
-    # PHASE 3: EMBEDDING & CHROMA STORAGE WITH UUID BINDING
+    # PHASE 3: EMBEDDING & SQLITE STORAGE WITH UUID BINDING
     # ============================================================
     print("\n" + "="*60)
-    print("PHASE 3: Embedding & Chroma Storage")
+    print("PHASE 3: Embedding & SQLite Storage")
     print("="*60)
     
-    os.makedirs(output_dir, exist_ok=True)
-    client = chromadb.PersistentClient(path=output_dir)
-    collection = client.get_or_create_collection("codebase")
-    vector_store = ChromaVectorStore(chroma_collection=collection)
-    
+    # Initialize Embedding Model (Lazy Loading)
     embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
     
+    # Build Line-to-Node Mapping for accurate ID binding
+    print("   🗺️  Building line-to-node mapping...")
+    node_line_map = {} # Key: (file_path, line_no), Value: node_id
+    for node_id, data in graph_manager.graph.nodes(data=True):
+        fp = data.get("file_path", "")
+        start = data.get("start_line", 0)
+        end = data.get("end_line", 0)
+        for line in range(start, end + 1):
+            node_line_map[(fp, line)] = node_id
+
     # Process nodes and bind to graph
     print("🔤 Embedding and binding nodes to graph...")
     batch_size = 100
+    vector_metadata_batch = [] # For 'vectors' table
+    vec_nodes_batch = []       # For 'vec_nodes' virtual table
     
     for i in range(0, len(nodes), batch_size):
         batch_nodes = nodes[i:i+batch_size]
@@ -157,74 +188,64 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
         texts = [node.text for node in batch_nodes]
         embeddings = embed_model.get_text_embedding_batch(texts)
         
-        # Prepare Chroma data
-        ids = [f"node_{i+j}" for j in range(len(batch_nodes))]
-        metadatas = []
-        
         for j, node in enumerate(batch_nodes):
-            # Task 4.5: Ensure relative path consistency
             abs_path = node.metadata.get("file_path", "")
             try:
                 rel_path = str(Path(abs_path).relative_to(repo_root))
             except ValueError:
                 rel_path = abs_path
             
-            metadata = {
-                "file_path": rel_path,
-                "start_line": node.metadata.get("start_line", 0),
-                "end_line": node.metadata.get("end_line", 0),
-                **{k: v for k, v in node.metadata.items() if k not in ["file_path", "start_line", "end_line"]}
-            }
-            metadatas.append(metadata)
+            chunk_start = node.metadata.get("start_line", 0)
+            chunk_end = node.metadata.get("end_line", 0)
             
-            # Task 4.4: Link vector_id to ALL intersecting AST nodes (many-to-many)
-            vector_id = ids[j]
-            graph_manager.link_vector_to_node(
-                vector_id=vector_id,
-                chunk_start=metadata["start_line"],
-                chunk_end=metadata["end_line"],
-                file_path=rel_path
-            )
+            # Find the most representative AST node ID for this chunk
+            linked_node_id = node_line_map.get((rel_path, chunk_start), f"{rel_path}:{chunk_start}-{chunk_end}")
+            
+            vector_id = f"vec_{i+j}"
+            binary_embedding = serialize_float32(embeddings[j])
+            
+            # Prepare batches
+            vector_metadata_batch.append((
+                vector_id, 
+                linked_node_id, 
+                binary_embedding, 
+                node.text[:500], 
+                chunk_start, 
+                chunk_end
+            ))
+            # For vec_nodes, include vector_id as primary key and node_id for graph traversal
+            vec_nodes_batch.append((vector_id, linked_node_id, binary_embedding))
         
-        # Add to Chroma
-        collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            documents=texts
-        )
-        
-        # Task 4.6: RSS Memory Monitoring every 100 files
-        if (i // batch_size + 1) % 100 == 0:
+        # RSS Memory Monitoring every 10 batches
+        if (i // batch_size + 1) % 10 == 0:
             process = psutil.Process(os.getpid())
             rss_mb = process.memory_info().rss / 1024 / 1024
             print(f"   📊 RSS Memory: {rss_mb:.2f} MB (processed {i+len(batch_nodes)}/{len(nodes)} nodes)")
     
-    print(f"✅ Phase 3 Complete: {len(nodes)} nodes embedded and bound")
+    # Execute Batch Insertions
+    print(f"   🚀 Batch inserting {len(vector_metadata_batch)} vectors into SQLite...")
+    db_manager.add_vectors_metadata_batch(vector_metadata_batch)
+    db_manager.add_vectors_batch(vec_nodes_batch)
+    
+    print(f"✅ Phase 3 Complete: {len(nodes)} nodes embedded and stored in SQLite")
     
     # ============================================================
-    # PHASE 4: PERSISTENCE WITH MEMORY MONITORING
+    # PHASE 4: FINALIZATION
     # ============================================================
     print("\n" + "="*60)
-    print("PHASE 4: Graph Persistence")
+    print("PHASE 4: Finalization")
     print("="*60)
     
     process = psutil.Process(os.getpid())
-    rss_before = process.memory_info().rss / 1024 / 1024
-    print(f"📊 RSS before save: {rss_before:.2f} MB")
+    rss_mb = process.memory_info().rss / 1024 / 1024
+    print(f"📊 Final RSS Memory: {rss_mb:.2f} MB")
     
-    graph_manager.save()
-    
-    rss_after = process.memory_info().rss / 1024 / 1024
-    print(f"📊 RSS after save: {rss_after:.2f} MB")
-    print(f"📈 Memory delta: {rss_after - rss_before:.2f} MB")
+    db_manager.close()
     
     print(f"\n✅ Index complete!")
-    print(f"📁 Vector Store: {output_dir}")
-    print(f"🗺️  Topology Graph: {graph_db_path}")
+    print(f"💾 Hybrid DB: {db_path}")
     print(f"📊 Total Nodes: {graph_manager.graph.number_of_nodes()}")
     print(f"📊 Total Edges: {graph_manager.graph.number_of_edges()}")
-    print(f"📊 Vector Mappings: {sum(len(v) for v in graph_manager.vector_to_nodes.values())}")
     print("\n💡 You can now use enhanced_query.py --with-graph to search")
 
 
@@ -233,7 +254,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Build Hybrid RAG Index (Vector + Graph)")
     parser.add_argument("--input-dir", type=str, default=".", help="Root directory of the repository")
-    parser.add_argument("--output-dir", type=str, default="./repo-index", help="Path for Chroma vector store")
+    parser.add_argument("--output-dir", type=str, default="./repo-index", help="Path for SQLite Hybrid DB")
     args = parser.parse_args()
 
     # Enforce absolute paths to avoid ambiguity in relative path calculations

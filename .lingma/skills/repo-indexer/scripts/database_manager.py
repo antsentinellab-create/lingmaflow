@@ -89,12 +89,11 @@ class DatabaseManager:
 
         CREATE TABLE IF NOT EXISTS vectors (
             vector_id TEXT PRIMARY KEY,
-            node_id TEXT NOT NULL,
+            node_id TEXT NOT NULL, -- Can reference nodes.id or be a custom identifier
             embedding BLOB NOT NULL,
             code_content TEXT,
             chunk_start INTEGER,
-            chunk_end INTEGER,
-            FOREIGN KEY(node_id) REFERENCES nodes(id) ON DELETE CASCADE
+            chunk_end INTEGER
         );
 
         -- Performance Indexes
@@ -108,7 +107,8 @@ class DatabaseManager:
         if sqlite_vec:
             schema_sql += f"""
             CREATE VIRTUAL TABLE IF NOT EXISTS vec_nodes USING vec0(
-                node_id TEXT PRIMARY KEY,
+                vector_id TEXT PRIMARY KEY,
+                node_id TEXT,
                 embedding FLOAT[{self.embedding_dim}]
             );
             """
@@ -371,7 +371,7 @@ class DatabaseManager:
         This is 50-100x faster than individual inserts for large datasets.
         
         Args:
-            vectors_data: List of tuples (node_id, binary_embedding).
+            vectors_data: List of tuples (vector_id, node_id, binary_embedding).
         """
         if not sqlite_vec:
             logger.error("sqlite-vec not loaded. Cannot batch insert vectors.")
@@ -380,12 +380,30 @@ class DatabaseManager:
         try:
             with self.conn: # Automatically handles BEGIN TRANSACTION and COMMIT
                 self.conn.executemany(
-                    "INSERT OR REPLACE INTO vec_nodes(node_id, embedding) VALUES (?, ?)",
+                    "INSERT OR REPLACE INTO vec_nodes(vector_id, node_id, embedding) VALUES (?, ?, ?)",
                     vectors_data
                 )
             logger.info(f"🚀 Batch inserted {len(vectors_data)} vectors into vec_nodes")
         except Exception as e:
             logger.error(f"Failed batch vector insertion: {e}")
+            raise
+
+    def add_vectors_metadata_batch(self, metadata_list: List[Tuple]):
+        """
+        Batch insert vector metadata into the 'vectors' table.
+        
+        Args:
+            metadata_list: List of tuples (vector_id, node_id, embedding, code_content, chunk_start, chunk_end).
+        """
+        try:
+            with self.conn:
+                self.conn.executemany(
+                    "INSERT OR REPLACE INTO vectors VALUES (?, ?, ?, ?, ?, ?)",
+                    metadata_list
+                )
+            logger.info(f"🚀 Batch inserted {len(metadata_list)} vector metadata records")
+        except Exception as e:
+            logger.error(f"Failed batch metadata insertion: {e}")
             raise
 
     def get_vectors_by_node(self, node_id: str) -> List[Dict]:
@@ -415,10 +433,15 @@ class DatabaseManager:
         # Only serialize if input is a list, otherwise assume it's already serialized
         binary_query = serialize_float32(query_embedding) if isinstance(query_embedding, list) else query_embedding
         cursor = self.conn.execute(
-            "SELECT node_id, vec_distance_cosine(embedding, ?) as dist FROM vec_nodes ORDER BY dist ASC LIMIT ?",
+            "SELECT vector_id, node_id, vec_distance_cosine(embedding, ?) as dist FROM vec_nodes ORDER BY dist ASC LIMIT ?",
             (binary_query, limit * 2) # Fetch more candidates for graph expansion
         )
-        vector_results = {row[0]: row[1] for row in cursor.fetchall()}
+        # Map node_id to (vector_id, distance)
+        vector_results = {}
+        for row in cursor.fetchall():
+            vid, nid, dist = row
+            if nid not in vector_results:  # Keep the closest vector for each node
+                vector_results[nid] = (vid, dist)
         
         if not vector_results:
             return []
@@ -428,7 +451,7 @@ class DatabaseManager:
         all_neighbor_ids = []
         neighbor_info = {} # Map ID to (seed_vec_dist, depth)
 
-        for seed_node_id, vec_dist in vector_results.items():
+        for seed_node_id, (seed_vector_id, vec_dist) in vector_results.items():
             vec_score = 1.0 - vec_dist
             
             # Always include the seed node itself with depth 0
@@ -459,6 +482,7 @@ class DatabaseManager:
             meta = nodes_meta.get(neighbor_id)
             if meta:
                 final_scores[neighbor_id] = {
+                    'node_id': neighbor_id,
                     'score': combined,
                     'vector_dist': seed_vec_dist,
                     'graph_depth': depth,
