@@ -1,0 +1,13 @@
+{
+  "issues": [
+    {
+      "severity": "medium",
+      "description": "Potential issue found in mock mode",
+      "location": "example.py:10",
+      "suggestion": "Review this section carefully",
+      "role": "Correctness Reviewer"
+    }
+  ],
+  "summary": "Code review complete. Found 1 issues: 0 high, 1 medium, 0 low severity. Overall quality score: 92/100.",
+  "quality_score": 92
+}

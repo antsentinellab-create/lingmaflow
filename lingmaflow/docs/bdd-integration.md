@@ -227,3 +227,178 @@ OpenSpec 的 templates 位於 npm package 內部：
   - `lingmaflow feature-lock <path>` - 鎖定單一 feature file
   - `lingmaflow feature-lock --all` - 鎖定所有 feature files
   - `lingmaflow feature-verify <path>` - 驗證 feature file 完整性
+
+---
+
+## 實戰紀錄 Practical Implementation Record
+
+### Phase 7 BDD 整合日期
+
+- **開始日期**: 2026-04-07
+- **完成日期**: 2026-04-08
+- **版本**: LingmaFlow v0.5.0
+- **目標專案**: AI-Factory (https://github.com/antsentinellab-create/AI-Factory)
+
+### AI-Factory Feature Files 鎖定狀態
+
+以下 6 個 feature files 已於 2026-04-08 成功鎖定，hashes 記錄於 `.lingmaflow/feature_locks.json`:
+
+| Feature File | SHA256 Hash |
+|-------------|-------------|
+| `features/remove_dead_orchestrator.feature` | `sha256:f35a8581...` |
+| `features/fix_random_seed.feature` | `sha256:0f7c7ee5...` |
+| `features/unify_max_retry.feature` | `sha256:0c57b3ea...` |
+| `features/storage_write_lock.feature` | `sha256:aaf84b30...` |
+| `features/protocol_action_routing.feature` | `sha256:750f22d4...` |
+| `features/router_side_effect_free.feature` | `sha256:ef3b8afc...` |
+
+**對應的 OpenSpec Changes:**
+- `ai-factory-remove-dead-orchestrator`
+- `ai-factory-fix-random-seed-production-bug`
+- `ai-factory-unify-max-retry-constants`
+- `ai-factory-fix-storage-write-lock-split-brain`
+- `ai-factory-fix-protocol-action-duplicate-instantiation`
+- `ai-factory-refactor-router-decision-chain`
+
+### Step 衝突修復紀錄
+
+**問題診斷** (2026-04-08):
+執行 `behave features/remove_dead_orchestrator.feature` 時遇到 `AmbiguousStep` 錯誤，原因是三個 steps files 中有重複的 step 定義。
+
+**衝突的 Steps:**
+1. `@when("scanning {filepath} source code")` - 出現在 `phase1_steps.py` 和 `storage_lock_steps.py`
+2. `@then('it does not contain "{unexpected}"')` - 出現在所有三個 files
+3. `@then('it contains "{expected}"')` - 出現在 `phase1_steps.py` 和 `storage_lock_steps.py`
+
+**解決方案:**
+從 `storage_lock_steps.py` 和 `protocol_action_steps.py` 中移除上述 3 個重複 steps，只保留它們特有的 steps：
+
+- **storage_lock_steps.py 特有 steps**:
+  - `@when("task_store and pipeline_store are imported")`
+  - `@then("task_store._write_lock is pipeline_store._write_lock")`
+  - `@when("{n:d} threads simultaneously acquire and release the shared lock")`
+  - 等 threading 相關測試 steps
+
+- **protocol_action_steps.py 特有 steps**:
+  - `@then('it does not contain "{text}" in research stage')`
+  - `@then('it does not contain "{text}" in planning stage')`
+  - `@given("PROTOCOL_ACTIONS_AVAILABLE is True")`
+  - 等 protocol-specific steps
+
+- **phase1_steps.py**: 作為通用 steps 來源，提供 parameterized versions
+
+**結果**: 所有 AmbiguousStep 錯誤已解決，behave 可正常載入所有 steps。
+
+### Phase 1 基線測試結果
+
+執行日期: 2026-04-08
+環境: AI-Factory venv_ai_factory (Python 3.13, behave 1.3.3)
+
+#### 1. remove_dead_orchestrator.feature
+- ✅ **通過 Scenarios** (3/5):
+  - `__init__.py 不含 orchestrator 引用`
+  - `run_workflow 可直接 import`
+  - `run_full_pipeline 可直接 import`
+- ❌ **失敗 Scenarios** (2/5):
+  - `orchestrator.py 檔案不存在` - 檔案仍存在（change 尚未實作）
+  - `無法 import orchestrator 模組` - 模組仍可 import（change 尚未實作）
+
+#### 2. fix_random_seed.feature
+- ✅ **通過 Scenarios** (1/4):
+  - `jitter 計算程式碼仍然存在`
+- ❌ **失敗 Scenarios** (1/4):
+  - `原始碼不含 random.seed() 呼叫` - random.seed() 仍存在（change 尚未實作）
+- ⚠️ **錯誤 Scenarios** (2/4):
+  - `LLMGateway 初始化後 random state 不變` - LLMGateway 需要 metrics/registry 參數
+  - `多個 LLMGateway 實例產生不同 jitter` - 同上，需要修正 step 實作
+
+#### 3. unify_max_retry.feature
+- ✅ **通過 Scenarios** (2/7):
+  - `環境變數設為 2 時 execution_stage 使用 2 次`
+  - `未設定環境變數時預設值為 5`
+- ❌ **失敗 Scenarios** (3/7):
+  - `execution_stage import config 常數而非 constants` - change 尚未實作
+  - `constants.py 含 deprecated 標註` - change 尚未實作
+  - `環境變數設為 7 時兩個常數都等於 7` - constants.MAX_RETRY 未委派到 config
+- ⚠️ **錯誤 Scenarios** (1/7):
+  - `constants.MAX_RETRY 委派到 config` - 缺少 step definition
+
+**總結**: 
+- 總計 16 scenarios
+- ✅ 6 passed (37.5%)
+- ❌ 6 failed (37.5%) - 因為 changes 尚未實作
+- ⚠️ 3 errored (18.75%) - step definitions 需要調整
+- 1 undefined (6.25%)
+
+### 預估可省 70% Code Review 工作量的依據
+
+#### 傳統 Code Review 流程（以 fix-random-seed 為例）
+
+1. **手動檢查原始碼** (15-20 分鐘)
+   - grep 搜尋 `random.seed()` 呼叫
+   - 檢查所有可能影響 global random state 的位置
+   - 確認 jitter 邏輯未被意外移除
+
+2. **理解上下文** (10-15 分鐘)
+   - 閱讀 thundering herd 問題的說明
+   - 理解為什麼不能 fix seed
+   - 確認 exponential backoff 的實作細節
+
+3. **手動測試驗證** (20-30 分鐘)
+   - 編寫臨時測試腳本
+   - 多次執行確認 randomness
+   - 檢查 edge cases
+
+4. **撰寫 Review Comments** (10-15 分鐘)
+   - 記錄檢查項目
+   - 提出潛在問題
+   - 建議改進方向
+
+**總計**: 55-80 分鐘 per change
+
+#### BDD 自動化驗證流程
+
+1. **執行 behave** (1-2 分鐘)
+   ```bash
+   behave features/fix_random_seed.feature
+   ```
+
+2. **檢視結果** (1-2 分鐘)
+   - ✅ 全綠 → merge
+   - ❌ 失敗 → 查看哪個 scenario 失敗，直接定位問題
+
+3. **Feature Lock 保護** (自動)
+   - 防止 agent 修改 .feature file 來通過測試
+   - Hash verification 確保驗收條件不被篡改
+
+**總計**: 2-4 分鐘 per change
+
+#### 工作量節省計算
+
+```
+傳統流程: 55-80 分鐘
+BDD 流程: 2-4 分鐘
+節省時間: 53-76 分鐘
+節省比例: (53-76) / 55-80 ≈ 70-95%
+保守估計: 70%
+```
+
+#### 額外優勢
+
+1. **一致性**: 每次 review 使用相同的驗收標準
+2. **可追溯性**: feature files 作為 executable documentation
+3. **防造假**: Feature Lock 機制防止 agent 繞過測試
+4. **自動化**: 整合到 CI/CD pipeline，無需人工介入
+5. **知識傳承**: 新成員可透過 feature files 快速理解系統行為
+
+#### 實際應用場景
+
+對於 AI-Factory 的 6 個 changes:
+- **傳統方式**: 6 × 55-80 min = 5.5-8 小時
+- **BDD 方式**: 6 × 2-4 min = 12-24 分鐘
+- **節省**: 5-7.5 小時 ≈ **70% 工作量減少**
+
+隨著專案規模擴大，節省效果會更顯著，因為：
+- Feature files 可重複使用
+- Regression testing 自動化
+- 新 changes 只需關注新增的 scenarios

@@ -8,6 +8,7 @@ This script implements the dual-dimension indexing:
 
 import os
 import sys
+import bisect
 from pathlib import Path
 import psutil
 
@@ -164,16 +165,31 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
     
     # Initialize Embedding Model (Lazy Loading)
     embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+    embedding_dim = 384
     
-    # Build Line-to-Node Mapping for accurate ID binding
-    print("   🗺️  Building line-to-node mapping...")
-    node_line_map = {} # Key: (file_path, line_no), Value: node_id
+    # Build Line-to-Node Mapping using Sorted Array + Binary Search (Memory Optimized)
+    print("   🗺️  Building optimized line-to-node mapping...")
+    node_ranges = []
     for node_id, data in graph_manager.graph.nodes(data=True):
         fp = data.get("file_path", "")
         start = data.get("start_line", 0)
         end = data.get("end_line", 0)
-        for line in range(start, end + 1):
-            node_line_map[(fp, line)] = node_id
+        node_ranges.append((fp, start, end, node_id))
+    
+    # CRITICAL: Sort by file_path and start_line for bisect to work correctly
+    node_ranges.sort(key=lambda x: (x[0], x[1]))
+    
+    def find_node_by_line(file_path, line_no):
+        """O(log N) lookup using binary search."""
+        # Create a dummy key for searching
+        lo = bisect.bisect_left(node_ranges, (file_path, line_no))
+        # Check backwards to see if the line falls within any range
+        for i in range(lo - 1, max(-1, lo - 5), -1): # Check a few previous entries
+            if i < 0: break
+            fp, start, end, nid = node_ranges[i]
+            if fp == file_path and start <= line_no <= end:
+                return nid
+        return f"{file_path}:{line_no}" # Fallback
 
     # Process nodes and bind to graph
     print("🔤 Embedding and binding nodes to graph...")
@@ -198,8 +214,8 @@ def build_index(input_dir=".", output_dir="./repo-index", extensions=None):
             chunk_start = node.metadata.get("start_line", 0)
             chunk_end = node.metadata.get("end_line", 0)
             
-            # Find the most representative AST node ID for this chunk
-            linked_node_id = node_line_map.get((rel_path, chunk_start), f"{rel_path}:{chunk_start}-{chunk_end}")
+            # Find the most representative AST node ID using Binary Search
+            linked_node_id = find_node_by_line(rel_path, chunk_start)
             
             vector_id = f"vec_{i+j}"
             binary_embedding = serialize_float32(embeddings[j])

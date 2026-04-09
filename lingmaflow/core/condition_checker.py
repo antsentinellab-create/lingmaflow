@@ -9,9 +9,11 @@ from __future__ import annotations
 import importlib
 import os
 import subprocess
+import tempfile
 from dataclasses import dataclass
 
 from .feature_lock import FeatureLock, FeatureLockError
+from .runner import SafeProcessRunner
 
 
 @dataclass
@@ -165,59 +167,30 @@ class ConditionChecker:
             )
     
     def check_behave(self, feature_path: str) -> ConditionResult:
-        """Run behave on a feature file and check if all scenarios pass.
-        
-        Args:
-            feature_path: Path to the .feature file
-            
-        Returns:
-            ConditionResult with passed=True if all scenarios pass
-        """
+        """驗證 BDD 條件：現在透過通用 Runner 執行。"""
+        if not os.path.exists(feature_path):
+            return ConditionResult(
+                passed=False,
+                condition=f"behave:{feature_path}",
+                message="❌ Feature file not found"
+            )
+
+        # 這裡可以保留 FeatureLock 驗證邏輯 (符合 README v0.5.0)
         try:
-            # Verify feature file hash before running behave
             feature_lock = FeatureLock()
             feature_lock.verify(feature_path)
         except FeatureLockError as e:
-            return ConditionResult(
-                passed=False,
-                condition=f"behave:{feature_path}",
-                message=str(e)
-            )
+            return ConditionResult(passed=False, condition=f"behave:{feature_path}", message=str(e))
+
+        # 調用通用安全引擎
+        success, output = SafeProcessRunner.run(['behave', feature_path])
         
-        try:
-            result = subprocess.run(
-                ['behave', feature_path],
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
-            )
+        status_emoji = "✅" if success else "❌"
+        msg = f"{status_emoji} behave {'passed' if success else 'failed'}: {feature_path}"
+        if not success:
+            msg += f"\n{output}"
             
-            if result.returncode == 0:
-                return ConditionResult(
-                    passed=True,
-                    condition=f"behave:{feature_path}",
-                    message=f"✅ behave passed: {feature_path}"
-                )
-            else:
-                # Extract error message from stderr or stdout
-                error_output = result.stderr if result.stderr else result.stdout
-                return ConditionResult(
-                    passed=False,
-                    condition=f"behave:{feature_path}",
-                    message=f"❌ behave failed: {feature_path}\n{error_output}"
-                )
-        except subprocess.TimeoutExpired:
-            return ConditionResult(
-                passed=False,
-                condition=f"behave:{feature_path}",
-                message=f"Behave execution timed out: {feature_path}"
-            )
-        except FileNotFoundError:
-            return ConditionResult(
-                passed=False,
-                condition=f"behave:{feature_path}",
-                message=f"❌ behave command not found. Install with: pip install behave"
-            )
+        return ConditionResult(success, f"behave:{feature_path}", msg)
     
     def parse_condition(self, condition_str: str) -> tuple[str, str]:
         """Parse a condition string into type and value.

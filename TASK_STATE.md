@@ -1,14 +1,15 @@
 當前步驟：PHASE-7
-狀態：in_progress
-上一步結果：P0+P1+P2 improvements complete, 195->209 tests
-下一步動作：/openspec-apply-change lingmaflow-phase5-resilient-harness
-未解決問題：
-最後更新：2026-04-07T06:55:27.392582
+狀態：completed
+上一步結果：Phase 7 BDD Integration complete - behave condition checker, feature lock protection, CLI commands, AGENTS.md injection, AI-Factory integration (6 feature files locked)
+下一步動作：歸檔 lingmaflow-phase7-bdd-integration
+未解決問題：無
+最後更新：2026-04-08T06:00:00.000000
 
 ## Done Conditions
-- [ ] file:lingmaflow/core/harness.py
-- [ ] func:lingmaflow.core.HarnessManager
-- [ ] func:lingmaflow.core.ResumePoint
-- [ ] file:tests/test_harness.py
-- [ ] pytest:tests/test_harness.py
-- [ ] pytest:tests/
+- [x] file:lingmaflow/core/harness.py
+- [x] func:lingmaflow.core.HarnessManager
+- [x] func:lingmaflow.core.ResumePoint
+- [x] file:tests/test_harness.py
+- [x] pytest:tests/test_harness.py
+- [x] behave:features/test_passing.feature
+- [x] pytest:tests/

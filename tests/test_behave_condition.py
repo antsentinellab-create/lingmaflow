@@ -67,100 +67,93 @@ class TestCheckBehave:
         assert result.condition == f"behave:{feature_path}"
         assert "❌ behave failed" in result.message
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
+    @patch('lingmaflow.core.condition_checker.SafeProcessRunner.run')
     def test_behave_command_not_found(self, mock_run):
         """Test behave execution when command is not installed."""
-        # Mock FileNotFoundError
-        mock_run.side_effect = FileNotFoundError("behave command not found")
+        mock_run.return_value = (False, "⚠️ Command not found: behave")
         
         checker = ConditionChecker()
-        result = checker.check_behave("features/test.feature")
+        result = checker.check_behave("tests/fixtures/test_passing.feature")
         
         assert result.passed is False
-        assert result.condition == "behave:features/test.feature"
-        assert "behave command not found" in result.message
-        assert "pip install behave" in result.message
+        assert "command not found" in result.message.lower()
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
+    def test_behave_feature_file_not_found(self):
+        """Test behave check when feature file path does not exist."""
+        checker = ConditionChecker()
+        result = checker.check_behave("features/non_existent_file.feature")
+        
+        assert result.passed is False
+        assert "Feature file not found" in result.message
+        # Ensure we don't get a misleading "command not found" error
+        assert "command not found" not in result.message.lower()
+    
+    @patch('lingmaflow.core.condition_checker.SafeProcessRunner.run')
     def test_behave_timeout(self, mock_run):
         """Test behave execution timeout."""
-        # Mock TimeoutExpired
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="behave", timeout=300)
+        mock_run.return_value = (False, "⏱️ Execution timed out after 300s")
         
         checker = ConditionChecker()
-        result = checker.check_behave("features/test.feature")
+        result = checker.check_behave("tests/fixtures/test_passing.feature")
         
         assert result.passed is False
-        assert result.condition == "behave:features/test.feature"
         assert "timed out" in result.message.lower()
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
+    @patch('lingmaflow.core.condition_checker.SafeProcessRunner.run')
     def test_behave_uses_correct_command(self, mock_run):
         """Test that behave is called with correct arguments."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = ""
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
+        mock_run.return_value = (True, "1 scenario passed")
         
         checker = ConditionChecker()
-        checker.check_behave("features/my_test.feature")
+        checker.check_behave("tests/fixtures/test_passing.feature")
         
-        # Verify subprocess.run was called with correct arguments
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args
-        assert call_args[0][0] == ['behave', 'features/my_test.feature']
-        assert call_args[1]['capture_output'] is True
-        assert call_args[1]['text'] is True
-        assert call_args[1]['timeout'] == 300
+        # Verify SafeProcessRunner was called with correct arguments
+        mock_run.assert_called_once_with(['behave', 'tests/fixtures/test_passing.feature'])
 
 
 class TestBehaveIntegrationWithCheckAll:
     """Test behave integration with check_all method."""
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
-    def test_check_all_with_behave_condition(self, mock_run):
+    @patch('lingmaflow.core.condition_checker.subprocess.Popen')
+    def test_check_all_with_behave_condition(self, mock_popen):
         """Test check_all processes behave: conditions correctly."""
         # Mock successful behave execution
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "1 scenario passed"
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = 0
+        mock_popen.return_value = mock_process
         
         checker = ConditionChecker()
         conditions = [
             "file:test.txt",
-            "behave:features/test.feature"
+            "behave:tests/fixtures/test_passing.feature"
         ]
         
         results = checker.check_all(conditions)
         
         assert len(results) == 2
         assert results[0].condition == "file:test.txt"
-        assert results[1].condition == "behave:features/test.feature"
+        assert results[1].condition == "behave:tests/fixtures/test_passing.feature"
         assert results[1].passed is True
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
-    def test_check_all_mixed_pass_fail(self, mock_run):
+    @patch('lingmaflow.core.condition_checker.subprocess.Popen')
+    def test_check_all_mixed_pass_fail(self, mock_popen):
         """Test check_all with mix of passing and failing behave conditions."""
         # First call succeeds, second fails
-        success_result = MagicMock()
-        success_result.returncode = 0
-        success_result.stdout = ""
-        success_result.stderr = ""
+        success_process = MagicMock()
+        success_process.returncode = 0
+        success_process.wait.return_value = 0
         
-        fail_result = MagicMock()
-        fail_result.returncode = 1
-        fail_result.stdout = ""
-        fail_result.stderr = "Scenario failed"
+        fail_process = MagicMock()
+        fail_process.returncode = 1
+        fail_process.wait.return_value = 1
         
-        mock_run.side_effect = [success_result, fail_result]
+        mock_popen.side_effect = [success_process, fail_process]
         
         checker = ConditionChecker()
         conditions = [
-            "behave:features/pass.feature",
-            "behave:features/fail.feature"
+            "behave:tests/fixtures/test_passing.feature",
+            "behave:tests/fixtures/test_failing.feature"
         ]
         
         results = checker.check_all(conditions)
@@ -184,18 +177,17 @@ class TestConditionCheckerFactoryWithBehave:
         assert condition_type == "behave"
         assert value == "features/test.feature"
     
-    @patch('lingmaflow.core.condition_checker.subprocess.run')
-    def test_factory_check_behave(self, mock_run):
+    @patch('lingmaflow.core.condition_checker.subprocess.Popen')
+    def test_factory_check_behave(self, mock_popen):
         """Test factory check method with behave condition."""
         from lingmaflow.core.condition_checker import ConditionCheckerFactory
         
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = ""
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = 0
+        mock_popen.return_value = mock_process
         
-        result = ConditionCheckerFactory.check("behave:features/test.feature")
+        result = ConditionCheckerFactory.check("behave:tests/fixtures/test_passing.feature")
         
         assert result.passed is True
-        assert result.condition == "behave:features/test.feature"
+        assert result.condition == "behave:tests/fixtures/test_passing.feature"

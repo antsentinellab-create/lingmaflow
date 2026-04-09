@@ -368,7 +368,7 @@ class DatabaseManager:
     def add_vectors_batch(self, vectors_data: List[Tuple]):
         """
         Batch insert vectors into vec_nodes virtual table using a transaction.
-        This is 50-100x faster than individual inserts for large datasets.
+        Includes Dead Letter Queue (DLQ) logic for failed batches.
         
         Args:
             vectors_data: List of tuples (vector_id, node_id, binary_embedding).
@@ -385,7 +385,16 @@ class DatabaseManager:
                 )
             logger.info(f"🚀 Batch inserted {len(vectors_data)} vectors into vec_nodes")
         except Exception as e:
-            logger.error(f"Failed batch vector insertion: {e}")
+            error_msg = str(e.args[0]) if e.args else str(e)
+            logger.error(f"Failed batch vector insertion: {error_msg}")
+            
+            # Dead Letter Queue: Log failed vector IDs for debugging
+            try:
+                with open("failed_batches.log", "a") as f:
+                    f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Error: {error_msg}\n")
+                    f.write(f"Vector IDs: {[v[0] for v in vectors_data]}\n\n")
+            except:
+                pass
             raise
 
     def add_vectors_metadata_batch(self, metadata_list: List[Tuple]):
@@ -413,83 +422,78 @@ class DatabaseManager:
         )
         return [dict(row) for row in cursor.fetchall()]
 
-    def hybrid_search(self, query_embedding: List[float] | bytes, limit: int = 5, graph_depth: int = 2, alpha: float = 0.7) -> List[Dict]:
+    def hybrid_search(self, query_embedding: List[float] | bytes, limit: int = 5, graph_depth: int = 2, alpha: float = 0.7, candidate_multiplier: float = 2.0, decay_rate: float = 1.0) -> List[Dict]:
         """
-        Advanced Hybrid Search: Combines Vector Similarity with Graph Traversal.
+        Advanced Hybrid Search with Normalized Dual-Track Scoring.
         
-        Formula: score = alpha * vector_sim + (1 - alpha) * (1 / (graph_dist + 1))
-        
-        Args:
-            query_embedding: The query vector (list of floats or pre-serialized bytes).
-            limit: Number of final results to return.
-            graph_depth: How many hops to traverse from vector matches.
-            alpha: Weight for vector similarity (0.0 to 1.0).
+        Formula: score = alpha * vec_score + (1 - alpha) * (1 / (depth + 1)^decay_rate)
         """
         if not sqlite_vec:
             logger.error("sqlite-vec is not loaded.")
             return []
 
-        # Step 1: Vector Search to get initial candidates
-        # Only serialize if input is a list, otherwise assume it's already serialized
+        # Step 1: Vector Search with dynamic candidate pool
         binary_query = serialize_float32(query_embedding) if isinstance(query_embedding, list) else query_embedding
         cursor = self.conn.execute(
             "SELECT vector_id, node_id, vec_distance_cosine(embedding, ?) as dist FROM vec_nodes ORDER BY dist ASC LIMIT ?",
-            (binary_query, limit * 2) # Fetch more candidates for graph expansion
+            (binary_query, int(limit * candidate_multiplier))
         )
-        # Map node_id to (vector_id, distance)
-        vector_results = {}
+        
+        # Map node_id to its best vector distance
+        vector_candidates = {}
         for row in cursor.fetchall():
             vid, nid, dist = row
-            if nid not in vector_results:  # Keep the closest vector for each node
-                vector_results[nid] = (vid, dist)
+            if nid not in vector_candidates or dist < vector_candidates[nid][1]:
+                vector_candidates[nid] = (vid, dist)
         
-        if not vector_results:
+        if not vector_candidates:
             return []
 
-        # Step 2: Graph Traversal & Scoring
+        # Step 2: Graph Traversal & Dual-Track Scoring
         final_scores = {}
         all_neighbor_ids = []
-        neighbor_info = {} # Map ID to (seed_vec_dist, depth)
+        neighbor_info = {} # Map ID to (has_vector, vec_dist, depth)
 
-        for seed_node_id, (seed_vector_id, vec_dist) in vector_results.items():
+        for seed_node_id, (seed_vid, vec_dist) in vector_candidates.items():
+            # Normalize vector score to [0, 1]
             vec_score = 1.0 - vec_dist
+            neighbor_info[seed_node_id] = (True, vec_dist, 0)
+            all_neighbor_ids.append(seed_node_id)
             
-            # Always include the seed node itself with depth 0
-            if seed_node_id not in neighbor_info:
-                neighbor_info[seed_node_id] = (vec_dist, 0)
-                all_neighbor_ids.append(seed_node_id)
-            
-            # Get neighbors via CTE (only if graph_depth > 0)
             if graph_depth > 0:
                 neighbors = self.get_call_chain_with_depth(seed_node_id, direction="backward", max_depth=graph_depth)
-                
                 for neighbor_id, depth in neighbors:
                     if neighbor_id not in neighbor_info:
-                        neighbor_info[neighbor_id] = (vec_dist, depth)
+                        neighbor_info[neighbor_id] = (False, None, depth)
                         all_neighbor_ids.append(neighbor_id)
 
-        # Batch fetch metadata for all unique neighbors at once
+        # Batch fetch metadata
         nodes_meta = self.get_nodes_batch(all_neighbor_ids)
 
-        # Calculate combined scores
-        for neighbor_id, (seed_vec_dist, depth) in neighbor_info.items():
-            vec_score = 1.0 - seed_vec_dist
-            graph_score = 1.0 / (depth + 1)
-            
-            # Combined Score with alpha weighting
-            combined = alpha * vec_score + (1 - alpha) * graph_score
-            
+        # Calculate combined scores with Normalization
+        for neighbor_id, (has_vector, vec_dist, depth) in neighbor_info.items():
             meta = nodes_meta.get(neighbor_id)
-            if meta:
-                final_scores[neighbor_id] = {
-                    'node_id': neighbor_id,
-                    'score': combined,
-                    'vector_dist': seed_vec_dist,
-                    'graph_depth': depth,
-                    'metadata': meta
-                }
+            if not meta:
+                continue
 
-        # Sort by combined score and return top N
+            # Track 1: Vector Score (Normalized)
+            current_vec_score = (1.0 - vec_dist) if has_vector and vec_dist is not None else 0.0
+            
+            # Track 2: Graph Score (Normalized with Decay)
+            graph_score = 1.0 / ((depth + 1) ** decay_rate)
+            
+            # Combined Score
+            combined = alpha * current_vec_score + (1 - alpha) * graph_score
+            
+            final_scores[neighbor_id] = {
+                'node_id': neighbor_id,
+                'score': combined,
+                'vector_dist': vec_dist if has_vector else 999.0,
+                'graph_depth': depth,
+                'metadata': meta
+            }
+
+        # Sort and return
         sorted_results = sorted(final_scores.values(), key=lambda x: x['score'], reverse=True)[:limit]
         return sorted_results
 

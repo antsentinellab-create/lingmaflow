@@ -79,10 +79,13 @@ class EnhancedCodebaseQuery:
         except Exception as e:
             return f"# [HYDRATION_ERROR] {str(e)}"
     
-    def query_with_hybrid_rag(self, question: str, top_k: int = 5, graph_depth: int = 2, alpha: float = 0.7) -> Dict:
+    def query_with_hybrid_rag(self, question: str, top_k: int = 5, graph_depth: int = 2, alpha: float = 0.7, candidate_multiplier: float = 2.0) -> Dict:
         """
         Perform Hybrid Retrieval using SQLite Hybrid DB.
         Combines Vector Similarity with Graph Traversal via Joint Scoring.
+        
+        Args:
+            candidate_multiplier: Controls the size of the initial vector candidate pool (e.g., 1.5 for precision, 5.0 for exploration).
         """
         db = self._load_db()
         embed_model = self._get_embed_model()
@@ -95,7 +98,8 @@ class EnhancedCodebaseQuery:
             query_embedding=query_embedding,
             limit=top_k,
             graph_depth=graph_depth if self.use_graph else 0,
-            alpha=alpha
+            alpha=alpha,
+            candidate_multiplier=candidate_multiplier
         )
         
         # Phase 3: Format Results & Hydrate Code
@@ -142,13 +146,14 @@ if __name__ == "__main__":
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
     parser.add_argument("--graph-depth", type=int, default=2, help="Graph traversal depth")
     parser.add_argument("--alpha", type=float, default=0.7, help="Weight for vector similarity (0.0-1.0)")
+    parser.add_argument("--multiplier", type=float, default=2.0, help="Candidate pool multiplier (1.5=Precision, 5.0=Exploration)")
     parser.add_argument("--repo-root", type=str, default=".", help="Root directory of the repository")
     
     args = parser.parse_args()
     
     print(f"🔍 Query: {args.query}")
     if args.with_graph:
-        print(f"🗺️  Mode: Hybrid RAG (Vector + Graph, Depth={args.graph_depth})")
+        print(f"🗺️  Mode: Hybrid RAG (Depth={args.graph_depth}, Multiplier={args.multiplier})")
     
     engine = EnhancedCodebaseQuery(
         db_path="./repo-index/codebase.db",
@@ -160,7 +165,8 @@ if __name__ == "__main__":
         args.query, 
         top_k=args.top_k, 
         graph_depth=args.graph_depth,
-        alpha=args.alpha
+        alpha=args.alpha,
+        candidate_multiplier=args.multiplier
     )
     
     print("\n" + "="*80)
